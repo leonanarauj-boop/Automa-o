@@ -7,6 +7,9 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, CardHeader, DemoBadge, Field, Input, LinkButton, PageHeader, Select, Textarea } from "@/components/ui";
 import { addNoteAction, consentAction, createDealAction, createTaskAction, setTagsAction, toggleTaskAction, updateContactAction } from "../../actions";
 import { ContactFields } from "../contact-fields";
+import { AnalysisCard } from "@/components/ai/analysis-card";
+import { aiProvider } from "@/modules/ai/anthropic";
+import type { AnalysisPayload } from "@/modules/ai/copilot";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,7 +17,10 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   const data = await tenant(async (db) => {
     const c = await getContact(db, id);
     if (!c) return null;
-    return { ...c, allTags: (await db.query<{ id: string; name: string }>("select id, name from tags order by name")).rows, pipeline: await getDefaultPipeline(db) };
+    const analysis = (await db.query<{ id: string; payload: AnalysisPayload }>(
+      "select id, payload from ai_suggestions where contact_id = $1 and kind = 'analysis' and status = 'pending' order by created_at desc limit 1", [id])).rows[0] ?? null;
+    const aiEnabled = (await db.query<{ ai_enabled: boolean }>("select ai_enabled from organizations limit 1")).rows[0].ai_enabled;
+    return { ...c, analysis, aiEnabled, allTags: (await db.query<{ id: string; name: string }>("select id, name from tags order by name")).rows, pipeline: await getDefaultPipeline(db) };
   });
   if (!data) notFound();
   const c = data.contact;
@@ -78,6 +84,14 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader title="Memória comercial" description={c.ai_summary_updated_at ? `Atualizada ${dateTime(c.ai_summary_updated_at)}` : "Resumo do cliente para retomar a conversa com contexto."} />
+            <div className="space-y-4 p-5 text-sm">
+              <p className={c.ai_summary ? "" : "text-muted"}>{c.ai_summary ?? "Ainda não registrada."}</p>
+              <AnalysisCard conversationId={data.conversationId} suggestion={data.analysis} aiReady={data.aiEnabled && aiProvider().available()} />
+            </div>
+          </Card>
+
           <Card>
             <CardHeader title="Resumo" />
             <dl className="space-y-2 px-5 py-4 text-sm">

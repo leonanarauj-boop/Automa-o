@@ -13,9 +13,11 @@
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:e2e": "playwright test --trace off"
+    "test:e2e": "playwright test --trace off",
+    "ai:smoke": "tsx scripts/ai-smoke.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "next": "^15.5.29",
     "pg": "^8.23.1",
     "react": "^19.3.1",

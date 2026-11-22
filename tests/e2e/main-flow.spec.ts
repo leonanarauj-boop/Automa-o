@@ -83,6 +83,21 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await expect(page.getByText("Conectado")).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/06-config.png`, fullPage: true });
 
+  // Assistente IA: cadastra catálogo e base; sem chave configurada, a interface avisa e não oferece botões de IA
+  await page.goto("/app/knowledge");
+  await expect(page.getByText("A IA ainda não está ativa")).toBeVisible();
+  await page.getByLabel("Produto ou serviço").fill("Limpeza");
+  await page.getByLabel("Preço (R$)").fill("250,00");
+  await page.getByRole("button", { name: "Adicionar ao catálogo" }).click();
+  await expect(page.getByText("R$ 250,00")).toBeVisible();
+  await page.getByLabel("Título").fill("Pagamento");
+  await page.getByLabel("Conteúdo").fill("Aceitamos Pix e cartão em até 10x sem juros.");
+  await page.getByRole("button", { name: "Adicionar documento" }).click();
+  await expect(page.getByText(/Pagamento · FAQ/)).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/07-assistente.png`, fullPage: true });
+  await page.goto("/app/inbox");
+  await expect(page.getByRole("button", { name: /Sugerir resposta com IA/ })).toHaveCount(0);
+
   // Sair
   await page.getByRole("button", { name: "Sair" }).last().click();
   await expect(page).toHaveURL(/\/login/);

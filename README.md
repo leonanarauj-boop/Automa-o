@@ -17,11 +17,12 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 | Funil | Kanban por etapas com valores, mover etapas, editar valores, motivo de perda; novo contato do WhatsApp gera negócio automaticamente |
 | **Radar de oportunidades** | Cliente aguardando resposta, cliente que parou de responder, negócio parado; valor potencial (negócio ou ticket médio, sempre rotulado como estimativa) **separado** da receita recuperada (só conta quando o negócio é ganho após o alerta); próxima ação recomendada; recálculo automático a cada 15 min |
 | Painel | Novos contatos, vendas, valor em negociação, tempo médio de 1ª resposta, funil por etapa, taxa de ganho |
+| **Copiloto de IA** | Sugestão de resposta (o atendente revisa e envia), análise da conversa com aplicação seletiva no CRM (memória comercial, temperatura, etapa, tarefa, objeções), catálogo e base de conhecimento por empresa, bloqueio automático de preços/condições inventados, limite mensal de uso e custo por chamada. Ver [AI_SYSTEM.md](docs/AI_SYSTEM.md) |
 | Demonstração | Dados de exemplo marcados como **DEMO**, removíveis com um clique |
 | Infra | Fila de jobs em Postgres com retentativas e backoff, worker separado, logs estruturados |
 
 ## O que ainda NÃO existe (próximas entregas)
-Agente de IA (copiloto e base de conhecimento), construtor de automações, agenda, campanhas, cobrança/assinaturas, convite de membros da equipe, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
+IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, construtor de automações, agenda, campanhas, cobrança/assinaturas, convite de membros da equipe, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
 
 ## Como rodar localmente
 
@@ -50,6 +51,7 @@ npm run test:unit          # regras puras (assinatura, janela 24h, Radar, cripto
 npm run test:integration   # banco real: isolamento multi-tenant, webhooks, envio, Radar (usa TEST_DATABASE_URL — o banco é recriado)
 npm run test:e2e           # navegador: cadastro → demo → contato → funil → webhook → conversa (usa o banco retoma_e2e)
 npm run typecheck
+npm run ai:smoke           # 2 chamadas reais à API da Claude (requer ANTHROPIC_API_KEY)
 ```
 
 ## Antes do lançamento (bloqueadores)
@@ -61,4 +63,4 @@ npm run typecheck
 ## Documentação
 - [Plano estratégico](docs/planejamento/01-PLANO-ESTRATEGICO.md) · [Modelo de dados (alvo)](docs/planejamento/02-MODELO-DE-DADOS.md) · [Arquitetura (alvo)](docs/planejamento/03-ARQUITETURA.md)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — como o código está organizado hoje e decisões tomadas
-- [SECURITY.md](docs/SECURITY.md) · [LGPD.md](docs/LGPD.md) · [INTEGRATIONS.md](docs/INTEGRATIONS.md) · [CHANGELOG.md](CHANGELOG.md)
+- [AI_SYSTEM.md](docs/AI_SYSTEM.md) · [SECURITY.md](docs/SECURITY.md) · [LGPD.md](docs/LGPD.md) · [INTEGRATIONS.md](docs/INTEGRATIONS.md) · [CHANGELOG.md](CHANGELOG.md)

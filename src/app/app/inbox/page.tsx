@@ -8,6 +8,11 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { Badge, DemoBadge, EmptyState, Notice, Textarea, cx } from "@/components/ui";
 import { markReadAction, sendTemplateAction, sendTextAction } from "../actions";
 import { TemplatePicker } from "./template-picker";
+import { aiProvider } from "@/modules/ai/anthropic";
+import { AnalysisCard } from "@/components/ai/analysis-card";
+import { CopyButton } from "@/components/ai/copy-button";
+import type { AnalysisPayload } from "@/modules/ai/copilot";
+import { discardReplyAction, suggestReplyAction } from "../actions";
 
 export const metadata = { title: "Conversas" };
 
@@ -56,11 +61,20 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       [conv.rows[0].contact_id],
     );
     const optedOut = await marketingOptedOut(db, conv.rows[0].contact_id);
-    return { list: list.rows, selected: { ...conv.rows[0], messages: msgs.rows, templates, deals: deals.rows, optedOut } };
+    const sugg = await db.query<{ id: string; kind: string; payload: never }>(
+      `select distinct on (kind) id, kind, payload from ai_suggestions
+       where status = 'pending' and ((kind = 'reply' and conversation_id = $1) or (kind = 'analysis' and contact_id = $2))
+       order by kind, created_at desc`, [selectedId, conv.rows[0].contact_id]);
+    const reply = sugg.rows.find((x) => x.kind === "reply") as { id: string; payload: { reply: string; needs_human: boolean; reason: string | null; blocked: boolean; violations: string[] } } | undefined;
+    const analysis = sugg.rows.find((x) => x.kind === "analysis") as { id: string; payload: AnalysisPayload } | undefined;
+    const ai = (await db.query<{ ai_enabled: boolean; ai_summary: string | null }>(
+      "select o.ai_enabled, ct.ai_summary from organizations o, contacts ct where ct.id = $1", [conv.rows[0].contact_id])).rows[0];
+    return { list: list.rows, selected: { ...conv.rows[0], messages: msgs.rows, templates, deals: deals.rows, optedOut, reply, analysis, aiEnabled: ai.ai_enabled, aiSummary: ai.ai_summary } };
   });
 
   const sel = data.selected;
-  const explicit = !!sp.c; // no celular, a lista aparece até o usuário escolher uma conversa
+  const explicit = !!sp.c;
+  const aiReady = !!sel?.aiEnabled && aiProvider().available(); // no celular, a lista aparece até o usuário escolher uma conversa
   const windowOpen = sel ? isWindowOpen(sel.service_window_expires_at) : false;
 
   return (
@@ -136,14 +150,55 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
 
             <div className="border-t border-border bg-surface p-3">
               {!sel.channel_account_id ? (
-                <Notice>Esta conversa não está ligada a um número conectado{sel.is_demo ? " (dados de demonstração)" : ""}. Para enviar mensagens, <Link href="/app/settings#whatsapp" className="font-medium underline">conecte o WhatsApp</Link>.</Notice>
+                <div className="space-y-2">
+                  {sel.reply && (
+                    <div className="rounded-lg border border-primary/30 bg-primary-soft/40 p-3 text-sm">
+                      <p className="font-medium text-primary">Sugestão da IA{sel.reply.payload.blocked ? " bloqueada" : ""}</p>
+                      {sel.reply.payload.blocked
+                        ? <p className="mt-1 text-danger">A resposta citava informações que não estão cadastradas ({sel.reply.payload.violations.join("; ")}).</p>
+                        : <p className="mt-1 whitespace-pre-wrap">{sel.reply.payload.reply}</p>}
+                      {!sel.reply.payload.blocked && sel.reply.payload.needs_human && <p className="mt-1 text-money">Atenção: {sel.reply.payload.reason ?? "a IA recomenda que um humano conduza esta resposta."}</p>}
+                      <div className="mt-2 flex gap-2">
+                        {!sel.reply.payload.blocked && <CopyButton text={sel.reply.payload.reply} />}
+                        <form action={discardReplyAction}><input type="hidden" name="suggestionId" value={sel.reply.id} /><button className="h-8 px-2 text-xs text-muted hover:text-text">Descartar</button></form>
+                      </div>
+                    </div>
+                  )}
+                  <Notice>Esta conversa não está ligada a um número conectado{sel.is_demo ? " (dados de demonstração)" : ""}. Para enviar mensagens, <Link href="/app/settings#whatsapp" className="font-medium underline">conecte o WhatsApp</Link>.</Notice>
+                  {aiReady && (
+                    <ActionForm action={suggestReplyAction}>
+                      <input type="hidden" name="conversationId" value={sel.id} />
+                      <SubmitButton size="sm" variant="ghost" pendingText="Gerando sugestão…">✦ {sel.reply ? "Gerar outra sugestão" : "Testar sugestão de resposta com IA"}</SubmitButton>
+                    </ActionForm>
+                  )}
+                </div>
               ) : windowOpen ? (
-                <ActionForm action={sendTextAction} resetOnSuccess className="flex items-end gap-2">
-                  <input type="hidden" name="conversationId" value={sel.id} />
-                  <label htmlFor="body" className="sr-only">Mensagem</label>
-                  <Textarea id="body" name="body" rows={2} maxLength={4096} required placeholder="Escreva sua resposta…" className="min-h-[2.5rem] flex-1 resize-y" />
-                  <SubmitButton pendingText="Enviando…">Enviar</SubmitButton>
-                </ActionForm>
+                <div className="space-y-2">
+                  {sel.reply && (
+                    <div className="rounded-lg border border-primary/30 bg-primary-soft/40 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-primary">Sugestão da IA {sel.reply.payload.blocked ? "bloqueada" : "— revise antes de enviar"}</p>
+                        <form action={discardReplyAction}><input type="hidden" name="suggestionId" value={sel.reply.id} /><button className="text-xs text-muted hover:text-text">Descartar</button></form>
+                      </div>
+                      {sel.reply.payload.blocked && <p className="mt-1 text-danger">A resposta citava informações que não estão cadastradas ({sel.reply.payload.violations.join("; ")}). Responda manualmente ou cadastre a informação em Assistente IA.</p>}
+                      {!sel.reply.payload.blocked && sel.reply.payload.needs_human && <p className="mt-1 text-money">Atenção: {sel.reply.payload.reason ?? "a IA recomenda que um humano conduza esta resposta."}</p>}
+                    </div>
+                  )}
+                  <ActionForm action={sendTextAction} resetOnSuccess className="flex items-end gap-2" key={sel.reply?.id ?? "manual"}>
+                    <input type="hidden" name="conversationId" value={sel.id} />
+                    {sel.reply && !sel.reply.payload.blocked && <input type="hidden" name="suggestionId" value={sel.reply.id} />}
+                    <label htmlFor="body" className="sr-only">Mensagem</label>
+                    <Textarea id="body" name="body" rows={sel.reply && !sel.reply.payload.blocked ? 4 : 2} maxLength={4096} required placeholder="Escreva sua resposta…"
+                      defaultValue={sel.reply && !sel.reply.payload.blocked ? sel.reply.payload.reply : ""} className="min-h-[2.5rem] flex-1 resize-y" />
+                    <SubmitButton pendingText="Enviando…">Enviar</SubmitButton>
+                  </ActionForm>
+                  {aiReady && (
+                    <ActionForm action={suggestReplyAction}>
+                      <input type="hidden" name="conversationId" value={sel.id} />
+                      <SubmitButton size="sm" variant="ghost" pendingText="Gerando sugestão…">✦ {sel.reply ? "Gerar outra sugestão" : "Sugerir resposta com IA"}</SubmitButton>
+                    </ActionForm>
+                  )}
+                </div>
               ) : sel.optedOut ? (
                 <Notice tone="danger">Este contato pediu para não receber mensagens. Envios iniciados pela empresa estão bloqueados até um novo consentimento.</Notice>
               ) : sel.templates.length === 0 ? (
@@ -175,7 +230,11 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
                 ))}
               </ul>
             )}
-            <Link href={`/app/contacts/${sel.contact_id}`} className="mt-4 inline-block text-sm text-primary hover:underline">Abrir ficha completa →</Link>
+            <h2 className="mt-6 text-sm font-semibold">Memória comercial</h2>
+            <p className="mt-1 text-sm text-muted">{sel.aiSummary ?? "Ainda não registrada."}</p>
+            <h2 className="mt-6 mb-2 text-sm font-semibold">Copiloto</h2>
+            <AnalysisCard conversationId={sel.id} suggestion={sel.analysis ?? null} aiReady={aiReady} />
+            <Link href={`/app/contacts/${sel.contact_id}`} className="mt-6 inline-block text-sm text-primary hover:underline">Abrir ficha completa →</Link>
           </aside>
         )}
       </div>

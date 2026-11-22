@@ -84,7 +84,7 @@ export async function getContact(db: Db, contactId: string) {
   const c = await db.query<{
     id: string; display_name: string; phone_e164: string | null; wa_id: string | null; email: string | null; company: string | null;
     notes: string | null; temperature: string | null; source: string; is_demo: boolean; created_at: Date;
-    last_inbound_at: Date | null; last_outbound_at: Date | null;
+    last_inbound_at: Date | null; last_outbound_at: Date | null; ai_summary: string | null; ai_summary_updated_at: Date | null;
   }>("select * from contacts where id = $1 and deleted_at is null", [contactId]);
   if (!c.rowCount) return null;
   const [tags, deals, notes, tasks, conv, consent] = await Promise.all([

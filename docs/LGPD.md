@@ -17,10 +17,12 @@ Nome, telefone/WhatsApp, e-mail, empresa, mensagens trocadas, notas internas, ne
 - Registro de consentimento **append-only** com origem e evidência; descadastro automático por palavra-chave bloqueia templates.
 - Minimização: o sistema só guarda o que chega pelo canal ou é digitado pela equipe.
 - Dados de demonstração identificados (`is_demo`) e removíveis.
-- Dados de uma empresa nunca são usados para outra (não há treinamento de modelos; a IA ainda não foi implementada e, quando for, usará apenas a base da própria empresa).
+- Dados de uma empresa nunca são usados para outra: o contexto enviado à IA é lido com RLS da própria organização (testado).
+- Copiloto de IA: trechos da conversa, dados do contato e a base de conhecimento da empresa são enviados ao provedor de IA (Anthropic) **somente quando um usuário aciona** a sugestão ou a análise. O registro interno (`ai_calls`) guarda apenas metadados. A organização pode desativar a IA.
 - Auditoria de ações sensíveis.
 
 ## Pendências
+- Listar a Anthropic como suboperadora na Política de Privacidade e no DPA; avaliar transferência internacional de dados (art. 33) e as configurações de retenção do provedor.
 - Exportação e exclusão de dados do titular a pedido (tabela `data_requests` prevista no modelo-alvo).
 - Política de retenção configurável (mensagens, eventos brutos de webhook — hoje sem expurgo automático; meta: 30 dias para `webhook_events`).
 - Termos de Uso, Política de Privacidade, DPA e RIPD; nomeação de encarregado (DPO).

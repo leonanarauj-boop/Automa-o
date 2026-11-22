@@ -3,9 +3,12 @@ import { AuthError } from "@/modules/auth/service";
 import { CrmError } from "@/modules/crm/service";
 import { SendBlockedError } from "@/modules/inbox/outbound";
 import { ChannelError } from "@/modules/whatsapp/channel";
+import { CopilotError } from "@/modules/ai/copilot";
+import { AILimitError } from "@/modules/ai/usage";
+import { KnowledgeError } from "@/modules/ai/knowledge";
 import type { ActionResult } from "@/components/action-form";
 
-const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError];
+const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError, CopilotError, AILimitError, KnowledgeError];
 
 /** Converte erros esperados em mensagens para o usuário; erros inesperados são logados e genéricos. */
 export async function safeAction(fn: () => Promise<string | void>): Promise<ActionResult> {

@@ -7,6 +7,8 @@ const schema = z.object({
   META_APP_SECRET: z.string().optional().default(""),
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional().default(""),
   META_GRAPH_VERSION: z.string().default("v23.0"),
+  ANTHROPIC_API_KEY: z.string().optional().default(""),
+  AI_MODEL: z.string().default("claude-opus-5-5"),
 });
 
 export type Env = z.infer<typeof schema>;

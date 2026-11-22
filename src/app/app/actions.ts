@@ -13,6 +13,8 @@ import { removeDemo, seedDemo } from "@/modules/demo/seed";
 import { connectChannel, disconnectChannel, syncTemplates } from "@/modules/whatsapp/channel";
 import { audit } from "@/modules/audit/audit";
 import type { SessionInfo } from "@/modules/auth/service";
+import { ANALYSIS_FIELDS, analyzeConversation, applyAnalysis, recordReplyOutcome, suggestReply, type AnalysisField } from "@/modules/ai/copilot";
+import { saveAgent, saveDocument, saveProduct } from "@/modules/ai/knowledge";
 
 function requireManager(s: SessionInfo) {
   if (s.role === "agent") throw new CrmError("Apenas gestores e o dono da conta podem fazer esta alteração.");
@@ -118,7 +120,11 @@ export async function toggleTaskAction(fd: FormData) {
 // ---------- Conversas ----------
 export async function sendTextAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
   return safeAction(async () => {
-    await tenant((db, s) => queueText(db, s.userId, { conversationId: str(fd, "conversationId"), body: str(fd, "body") }));
+    await tenant(async (db, s) => {
+      await queueText(db, s.userId, { conversationId: str(fd, "conversationId"), body: str(fd, "body") });
+      const sid = str(fd, "suggestionId");
+      if (sid) await recordReplyOutcome(db, s.userId, uuid(sid), str(fd, "body"));
+    });
     revalidatePath("/app/inbox");
   });
 }
@@ -205,4 +211,97 @@ export async function syncTemplatesAction(_: ActionResult, fd: FormData): Promis
     revalidatePath("/app/settings");
     return `${n} template(s) sincronizado(s).`;
   });
+}
+
+// ---------- IA: copiloto ----------
+export async function suggestReplyAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const s = await requireSession();
+    await suggestReply({ userId: s.userId, orgId: s.orgId }, uuid(str(fd, "conversationId")));
+    revalidatePath("/app/inbox");
+  });
+}
+
+export async function discardReplyAction(fd: FormData) {
+  await tenant((db, s) => recordReplyOutcome(db, s.userId, uuid(str(fd, "suggestionId")), null));
+  revalidatePath("/app/inbox");
+}
+
+export async function analyzeAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const s = await requireSession();
+    await analyzeConversation({ userId: s.userId, orgId: s.orgId }, uuid(str(fd, "conversationId")));
+    revalidatePath("/app/inbox");
+    revalidatePath("/app/contacts", "layout");
+  });
+}
+
+export async function applyAnalysisAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const fields = fd.getAll("field").map(String).filter((f): f is AnalysisField => (ANALYSIS_FIELDS as readonly string[]).includes(f));
+    await tenant((db, s) => applyAnalysis(db, s.orgId, s.userId, uuid(str(fd, "suggestionId")), fields));
+    revalidatePath("/app", "layout");
+    return fields.length ? "Alterações aplicadas." : "Sugestão descartada.";
+  });
+}
+
+// ---------- IA: base de conhecimento e configuração ----------
+export async function saveAgentAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    await tenant(async (db, s) => {
+      requireManager(s);
+      await saveAgent(db, s.orgId, s.userId, {
+        name: str(fd, "name"), tone: str(fd, "tone"), formality: str(fd, "formality") as never, businessDescription: str(fd, "businessDescription"),
+        businessHours: str(fd, "businessHours"), policies: str(fd, "policies"), handoffRules: str(fd, "handoffRules"), forbiddenTopics: str(fd, "forbiddenTopics"),
+      });
+      await audit(db, { orgId: s.orgId, actorType: "user", actorId: s.userId, action: "ai.agent.updated" });
+    });
+    revalidatePath("/app/knowledge");
+    return "Configuração salva.";
+  });
+}
+
+export async function saveProductAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    await tenant(async (db, s) => {
+      requireManager(s);
+      const id = str(fd, "id");
+      await saveProduct(db, s.orgId, { name: str(fd, "name"), description: str(fd, "description"), price: str(fd, "price"), priceType: str(fd, "priceType") as never, durationMin: str(fd, "durationMin") }, id ? uuid(id) : undefined);
+    });
+    revalidatePath("/app/knowledge");
+    return "Item salvo.";
+  });
+}
+
+export async function toggleProductAction(fd: FormData) {
+  await tenant(async (db, s) => { requireManager(s); await db.query("update products_services set active = not active, updated_at = now() where id = $1", [uuid(str(fd, "id"))]); });
+  revalidatePath("/app/knowledge");
+}
+
+export async function addDocumentAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    await tenant(async (db, s) => { requireManager(s); await saveDocument(db, s.orgId, s.userId, { title: str(fd, "title"), kind: str(fd, "kind") as never, content: str(fd, "content") }); });
+    revalidatePath("/app/knowledge");
+    return "Documento adicionado à base.";
+  });
+}
+
+export async function deleteDocumentAction(fd: FormData) {
+  await tenant(async (db, s) => {
+    requireManager(s);
+    const id = uuid(str(fd, "id"));
+    await db.query("delete from knowledge_documents where id = $1", [id]);
+    await audit(db, { orgId: s.orgId, actorType: "user", actorId: s.userId, action: "ai.document.deleted", targetType: "document", targetId: id });
+  });
+  revalidatePath("/app/knowledge");
+}
+
+export async function toggleAiAction(fd: FormData) {
+  await tenant(async (db, s) => {
+    requireManager(s);
+    const on = str(fd, "enabled") === "1";
+    await db.query("update organizations set ai_enabled = $1, updated_at = now() where id = $2", [on, s.orgId]);
+    await audit(db, { orgId: s.orgId, actorType: "user", actorId: s.userId, action: on ? "ai.enabled" : "ai.disabled" });
+  });
+  revalidatePath("/app/knowledge");
 }
