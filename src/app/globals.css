@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Identidade visual "Retoma": petróleo profundo (confiança) + âmbar (dinheiro/oportunidade). */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --border: #e3e6eb;
+  --text: #121826;
+  --muted: #5b6474;
+  --primary: #0e6e6a;
+  --primary-strong: #0a5552;
+  --primary-soft: #e3f3f2;
+  --on-primary: #ffffff;
+  --money: #b45309;
+  --money-soft: #fdf3e2;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #12795a;
+  --success-soft: #e5f5ee;
+  --info-soft: #e8eefc;
+  --bubble-in: #ffffff;
+  --bubble-out: #dff1ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #151b23;
+    --surface-2: #1c2430;
+    --border: #2a3441;
+    --text: #e8ecf2;
+    --muted: #9aa5b5;
+    --primary: #3cb7ae;
+    --primary-strong: #5fd0c7;
+    --primary-soft: #133331;
+    --on-primary: #06201e;
+    --money: #f0a54a;
+    --money-soft: #3a2a12;
+    --danger: #f97066;
+    --danger-soft: #3b1715;
+    --success: #4cc79a;
+    --success-soft: #11322a;
+    --info-soft: #182540;
+    --bubble-in: #1c2430;
+    --bubble-out: #133331;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+  --color-money: var(--money);
+  --color-money-soft: var(--money-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-info-soft: var(--info-soft);
+  --color-bubble-in: var(--bubble-in);
+  --color-bubble-out: var(--bubble-out);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html { color-scheme: light dark; }
+body { background: var(--bg); color: var(--text); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

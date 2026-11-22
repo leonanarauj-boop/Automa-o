@@ -7,7 +7,7 @@ export async function dashboardMetrics(db: Db, orgId: string, days = 30) {
     won_count: string; won_value: string | null; lost_count: string; awaiting: string; tasks_due: string;
     avg_first_response_min: string | null; demo_contacts: string;
   }>(
-    `with p as (select now() - ($2 || ' days')::interval as start, now() - ($2 * 2 || ' days')::interval as prev_start)
+    `with p as (select now() - make_interval(days => $2::int) as start, now() - make_interval(days => $2::int * 2) as prev_start)
      select
        (select count(*) from contacts, p where organization_id = $1 and deleted_at is null and created_at >= p.start) as new_contacts,
        (select count(*) from contacts, p where organization_id = $1 and deleted_at is null and created_at >= p.prev_start and created_at < p.start) as prev_contacts,

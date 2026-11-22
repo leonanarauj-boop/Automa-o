@@ -110,3 +110,17 @@ describe("isolamento multi-tenant (RLS)", () => {
     expect(r.rows.map((x) => x.email)).toEqual(["ana@a.com"]);
   });
 });
+
+describe("painel", async () => {
+  const { dashboardMetrics, stageFunnel } = await import("@/modules/dashboard/metrics");
+  it("calcula indicadores a partir dos dados (demo inclusa)", async () => {
+    const m = await withTenant(A, (db) => dashboardMetrics(db, A.orgId));
+    expect(m.demoContacts).toBe(6);
+    expect(m.wonCount).toBe(1);
+    expect(m.wonValue).toBe(220000);
+    expect(m.openDeals).toBe(4);
+    expect(m.avgFirstResponseMin).not.toBeNull();
+    const f = await withTenant(A, (db) => stageFunnel(db));
+    expect(f.reduce((a, s) => a + s.count, 0)).toBe(6);
+  });
+});
