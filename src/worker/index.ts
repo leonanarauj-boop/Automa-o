@@ -1,0 +1,33 @@
+/**
+ * Worker de processamento assíncrono (rodar como serviço de longa duração).
+ * Processa webhooks, envios ao WhatsApp e recalcula o Radar periodicamente.
+ */
+import { loadEnvFile } from "node:process";
+try { loadEnvFile(); } catch { /* usa variáveis do ambiente */ }
+
+const RADAR_EVERY_MS = 15 * 60 * 1000;
+
+async function main() {
+  const { runOnce, scheduleRadar } = await import("./handlers");
+  const { closePool } = await import("@/lib/db");
+  let stopping = false;
+  const stop = () => { stopping = true; };
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  let lastRadar = 0;
+  console.log(JSON.stringify({ level: "info", msg: "worker iniciado" }));
+  while (!stopping) {
+    try {
+      if (Date.now() - lastRadar > RADAR_EVERY_MS) { await scheduleRadar(); lastRadar = Date.now(); }
+      const n = await runOnce(20);
+      if (n === 0) await new Promise((r) => setTimeout(r, 1000));
+    } catch (e) {
+      console.error(JSON.stringify({ level: "error", msg: "erro no loop do worker", error: (e as Error).message }));
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  await closePool();
+  console.log(JSON.stringify({ level: "info", msg: "worker finalizado" }));
+}
+
+main();
