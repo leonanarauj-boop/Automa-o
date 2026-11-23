@@ -59,11 +59,18 @@ export async function resetPassword(token: string, password: string) {
     await db.query("delete from sessions where user_id = $1", [r.user_id]);
     await db.query("delete from auth_attempts where lower(email) = (select lower(email) from users where id = $1) and success = false", [r.user_id]);
     const m = (await db.query<{ organization_id: string }>("select organization_id from memberships where user_id = $1 and status = 'active' order by created_at limit 1", [r.user_id])).rows[0];
+    // redefinir a senha não dispensa a verificação em duas etapas
+    const mfa = (await db.query<{ on: boolean }>("select mfa_enabled_at is not null as on from users where id = $1", [r.user_id])).rows[0].on;
+    if (mfa) {
+      const { createChallenge } = await import("@/modules/mfa/service");
+      await audit(db, { orgId: m?.organization_id ?? null, actorType: "user", actorId: r.user_id, action: "auth.password_reset" });
+      return { challenge: await createChallenge(db, r.user_id, m?.organization_id ?? null), hasOrg: !!m } as const;
+    }
     const sessionToken = randomToken();
     await db.query("insert into sessions (token_hash, user_id, active_org_id, expires_at) values ($1,$2,$3, now() + make_interval(days => $4))",
       [sha256(sessionToken), r.user_id, m?.organization_id ?? null, SESSION_TTL_DAYS]);
     await audit(db, { orgId: m?.organization_id ?? null, actorType: "user", actorId: r.user_id, action: "auth.password_reset" });
-    return { token: sessionToken, hasOrg: !!m };
+    return { token: sessionToken, hasOrg: !!m } as const;
   });
 }
 

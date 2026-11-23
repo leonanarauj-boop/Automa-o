@@ -1,4 +1,5 @@
 import { requireSession, tenant } from "@/lib/session";
+import { redirect } from "next/navigation";
 import { logoutAction, switchOrgAction } from "../auth-actions";
 import { withService } from "@/lib/db";
 import { Nav } from "@/components/nav";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
+  // Política da empresa: donos e gestores precisam da verificação em duas etapas
+  if (s.requireMfa && s.role !== "agent" && !s.mfaEnabled) redirect("/conta/seguranca?obrigatorio=1");
   const counts = await tenant(async (db) => {
     const r = await db.query<{ awaiting: string; signals: string; status: string; trial_ends_at: Date }>(
       `select (select count(*) from conversations where status = 'open' and unread_count > 0) as awaiting,

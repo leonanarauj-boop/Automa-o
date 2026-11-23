@@ -49,3 +49,19 @@ export async function changePasswordAction(_: ActionResult, fd: FormData): Promi
     return "Senha alterada. As outras sessões abertas foram encerradas.";
   });
 }
+
+export async function requireMfaAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  return safeAction(async () => {
+    const s = await requireSession();
+    if (s.role !== "owner") throw new AuthError("Apenas o dono pode alterar esta política.");
+    const on = str(fd, "value") === "1";
+    if (on && !s.mfaEnabled) throw new AuthError("Ative a verificação em duas etapas na sua conta antes de exigi-la da equipe.");
+    await tenant(async (db) => {
+      await db.query("update organizations set require_mfa = $1, updated_at = now() where id = $2", [on, s.orgId]);
+      const { audit } = await import("@/modules/audit/audit");
+      await audit(db, { orgId: s.orgId, actorType: "user", actorId: s.userId, action: on ? "security.mfa_required" : "security.mfa_optional" });
+    });
+    revalidatePath("/app", "layout");
+    return on ? "Agora donos e gestores precisam da verificação em duas etapas." : "Verificação em duas etapas opcional.";
+  });
+}

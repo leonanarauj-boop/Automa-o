@@ -99,7 +99,7 @@ describe("senha", () => {
     await expect(resetPassword(token, "curta")).rejects.toThrow(/10 caracteres/);
     const r = await resetPassword(token, "nova-senha-segura-1");
     expect(await getSessionByToken(old.token)).toBeNull();
-    expect((await getSessionByToken(r.token))!.orgId).toBe(A.orgId);
+    expect((await getSessionByToken(r.token!))!.orgId).toBe(A.orgId);
     await expect(resetPassword(token, "outra-senha-segura")).rejects.toThrow(/inválido/);
     await expect(login("ana@a.com", "senha-forte-123")).rejects.toThrow(/incorretos/);
     await login("ana@a.com", "nova-senha-segura-1");

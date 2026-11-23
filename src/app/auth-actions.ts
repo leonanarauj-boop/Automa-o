@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { login, logout, signup } from "@/modules/auth/service";
+import { authenticate, logout, signup, SESSION_TTL_DAYS } from "@/modules/auth/service";
+import { completeChallenge } from "@/modules/mfa/service";
 import { clearSessionCookie, clientIp, SESSION_COOKIE, setSessionCookie, userAgent } from "@/lib/session";
 import { safeAction, str } from "@/lib/action";
 import type { ActionResult } from "@/components/action-form";
@@ -28,12 +29,35 @@ export async function signupAction(_: ActionResult, fd: FormData): Promise<Actio
   return res;
 }
 
+const MFA_COOKIE = "retoma_mfa";
+
+async function startMfa(challenge: string) {
+  (await cookies()).set(MFA_COOKIE, challenge, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 5 * 60 });
+}
+
 export async function loginAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  let mfa = false;
+  const next = safeNext(str(fd, "next"));
   const res = await safeAction(async () => {
-    const r = await login(str(fd, "email"), str(fd, "password"), await clientIp(), await userAgent());
-    await setSessionCookie(r.token);
+    const r = await authenticate(str(fd, "email"), str(fd, "password"), await clientIp(), await userAgent(), next);
+    if (r.challenge) { await startMfa(r.challenge); mfa = true; return; }
+    await setSessionCookie(r.token!);
   });
-  if (res?.ok) redirect(safeNext(str(fd, "next")));
+  if (res?.ok) redirect(mfa ? "/login/verificacao" : next);
+  return res;
+}
+
+export async function verifyMfaAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  let next = "/app";
+  const res = await safeAction(async () => {
+    const jar = await cookies();
+    const challenge = jar.get(MFA_COOKIE)?.value ?? "";
+    const r = await completeChallenge(challenge, str(fd, "code"), SESSION_TTL_DAYS);
+    jar.delete(MFA_COOKIE);
+    await setSessionCookie(r.token);
+    next = safeNext(r.next ?? "/app");
+  });
+  if (res?.ok) redirect(next);
   return res;
 }
 
@@ -52,12 +76,14 @@ export async function forgotPasswordAction(_: ActionResult, fd: FormData): Promi
 }
 
 export async function resetPasswordAction(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  let mfaNeeded = false;
   const res = await safeAction(async () => {
     if (str(fd, "password") !== str(fd, "confirm")) throw new (await import("@/modules/auth/service")).AuthError("As senhas não conferem.");
     const r = await resetPassword(str(fd, "token"), str(fd, "password"));
-    await setSessionCookie(r.token);
+    if (r.challenge) { await startMfa(r.challenge); mfaNeeded = true; return; }
+    await setSessionCookie(r.token!);
   });
-  if (res?.ok) redirect("/app");
+  if (res?.ok) redirect(mfaNeeded ? "/login/verificacao" : "/app");
   return res;
 }
 

@@ -78,7 +78,11 @@ export async function signup(input: SignupInput, userAgent?: string) {
   });
 }
 
-export async function login(emailRaw: string, password: string, ip?: string, userAgent?: string) {
+/**
+ * Autenticação por senha. Se a conta tiver verificação em duas etapas, devolve um desafio
+ * (em vez de sessão) que só vira sessão com o código do aplicativo.
+ */
+export async function authenticate(emailRaw: string, password: string, ip?: string, userAgent?: string, next?: string) {
   const email = emailRaw.trim().toLowerCase();
   // A tentativa é registrada numa transação que sempre faz commit; o erro é lançado depois,
   // para que falhas não sejam desfeitas pelo rollback (senão o bloqueio nunca dispararia).
@@ -89,8 +93,8 @@ export async function login(emailRaw: string, password: string, ip?: string, use
       [email, String(LOCK_WINDOW_MIN)],
     );
     if (Number(failures.rows[0].n) >= MAX_FAILED_LOGINS) return { error: `Muitas tentativas. Tente novamente em ${LOCK_WINDOW_MIN} minutos.` } as const;
-    const u = await db.query<{ id: string; password_hash: string }>(
-      "select id, password_hash from users where lower(email) = $1",
+    const u = await db.query<{ id: string; password_hash: string; mfa_enabled_at: Date | null }>(
+      "select id, password_hash, mfa_enabled_at from users where lower(email) = $1",
       [email],
     );
     const ok = u.rowCount ? await verifyPassword(password, u.rows[0].password_hash) : false;
@@ -101,11 +105,23 @@ export async function login(emailRaw: string, password: string, ip?: string, use
       "select organization_id from memberships where user_id = $1 and status = 'active' order by created_at limit 1",
       [userId],
     );
-    const token = await createSession(db, userId, m.rows[0]?.organization_id ?? null, userAgent);
+    const orgId = m.rows[0]?.organization_id ?? null;
+    if (u.rows[0].mfa_enabled_at) {
+      const { createChallenge } = await import("@/modules/mfa/service");
+      return { challenge: await createChallenge(db, userId, orgId, { next, userAgent }), userId } as const;
+    }
+    const token = await createSession(db, userId, orgId, userAgent);
     return { token, userId } as const;
   });
   if ("error" in result) throw new AuthError(result.error);
   return result;
+}
+
+/** Login direto (contas sem verificação em duas etapas). */
+export async function login(emailRaw: string, password: string, ip?: string, userAgent?: string) {
+  const r = await authenticate(emailRaw, password, ip, userAgent);
+  if (!r.token) throw new AuthError("Esta conta exige o código de verificação.");
+  return { token: r.token, userId: r.userId };
 }
 
 export interface SessionInfo {
@@ -117,13 +133,17 @@ export interface SessionInfo {
   userEmail: string;
   orgName: string;
   segment: string;
+  mfaEnabled: boolean;
+  mfaVerified: boolean;
+  requireMfa: boolean;
 }
 
 export async function getSessionByToken(token: string): Promise<SessionInfo | null> {
   return withService(async (db) => {
     const r = await db.query<SessionInfo & { session_id: string }>(
       `select s.id as "sessionId", u.id as "userId", m.organization_id as "orgId", m.role,
-              u.full_name as "userName", u.email as "userEmail", o.name as "orgName", o.segment
+              u.full_name as "userName", u.email as "userEmail", o.name as "orgName", o.segment,
+              u.mfa_enabled_at is not null as "mfaEnabled", s.mfa_verified_at is not null as "mfaVerified", o.require_mfa as "requireMfa"
        from sessions s
        join users u on u.id = s.user_id
        join memberships m on m.user_id = u.id and m.organization_id = s.active_org_id and m.status = 'active'

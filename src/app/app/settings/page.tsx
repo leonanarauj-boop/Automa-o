@@ -7,7 +7,7 @@ import { connectChannelAction, disconnectChannelAction, syncTemplatesAction, upd
 import { RULE_LABELS, type RuleKind } from "@/modules/radar/rules";
 import { getSegment } from "@/modules/onboarding/segments";
 import { getPlan } from "@/modules/billing/plans";
-import { changePasswordAction, changeRoleAction, inviteAction, memberStatusAction, revokeInviteAction } from "./team-actions";
+import { changePasswordAction, changeRoleAction, inviteAction, memberStatusAction, revokeInviteAction, requireMfaAction } from "./team-actions";
 
 export const metadata = { title: "Configurações" };
 
@@ -32,6 +32,7 @@ export default async function Settings() {
     invites: (await db.query<{ id: string; email: string; role: string; expires_at: Date }>(
       "select id, email, role, expires_at from invitations where accepted_at is null and revoked_at is null and expires_at > now() order by created_at desc")).rows,
     plan: (await db.query<{ plan: string }>("select plan from organizations limit 1")).rows[0].plan,
+    requireMfa: (await db.query<{ require_mfa: boolean }>("select require_mfa from organizations limit 1")).rows[0].require_mfa,
     logs: (await db.query<{ action: string; created_at: Date; actor: string | null }>(
       "select a.action, a.created_at, u.full_name as actor from audit_logs a left join users u on u.id = a.actor_id order by a.created_at desc limit 15")).rows,
   }));
@@ -160,6 +161,20 @@ export default async function Settings() {
             </ul>
           </Card>
         </div>
+
+        <Card id="seguranca">
+          <CardHeader title="Segurança" />
+          <div className="space-y-4 p-5 text-sm">
+            <p>Verificação em duas etapas: {d.s.mfaEnabled ? <Badge tone="success">Ativa</Badge> : <Badge>Desativada</Badge>} <a href="/conta/seguranca" className="ml-2 text-primary hover:underline">{d.s.mfaEnabled ? "Gerenciar" : "Ativar"}</a></p>
+            {d.s.role === "owner" && (
+              <ActionForm action={requireMfaAction} className="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="value" value={d.requireMfa ? "0" : "1"} />
+                <span>Exigir verificação em duas etapas de donos e gestores: <strong>{d.requireMfa ? "sim" : "não"}</strong></span>
+                <SubmitButton size="sm" variant="secondary">{d.requireMfa ? "Deixar opcional" : "Exigir"}</SubmitButton>
+              </ActionForm>
+            )}
+          </div>
+        </Card>
 
         <Card id="conta">
           <CardHeader title="Minha conta" description={`${d.s.userName} · ${d.s.userEmail}`} />
