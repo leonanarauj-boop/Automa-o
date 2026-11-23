@@ -173,7 +173,8 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
 
   // Equipe: convite → link → nova conta como atendente (sem SMTP neste ambiente, o link aparece na tela)
   await page.goto("/app/settings#equipe");
-  await page.getByLabel("E-mail do convidado").fill("atendente@teste.com");
+  const agentEmail = `atendente-${randomUUID().slice(0, 8)}@teste.com`;
+  await page.getByLabel("E-mail do convidado").fill(agentEmail);
   await page.getByRole("button", { name: "Convidar" }).click();
   const msg = await page.getByText(/Link do convite/).textContent();
   const link = msg!.match(/https?:\/\/\S+\/convite\/[A-Za-z0-9_-]+/)![0];
@@ -193,7 +194,7 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await expect(p2.getByText("Convite inválido ou expirado")).toBeVisible(); // uso único
   await other.close();
   await page.reload();
-  await expect(page.getByText(/Bruno Atendente · atendente@teste.com/)).toBeVisible();
+  await expect(page.getByText(`Bruno Atendente · ${agentEmail}`, { exact: false })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/14-equipe.png`, fullPage: true });
 
   // Sair
