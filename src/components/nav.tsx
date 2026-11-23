@@ -8,6 +8,7 @@ const ITEMS = [
   { href: "/app", label: "Painel", icon: "M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z" },
   { href: "/app/inbox", label: "Conversas", icon: "M4 4h16v12H7l-3 3V4Z" },
   { href: "/app/radar", label: "Radar", icon: "M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5m-5 0 7-7" },
+  { href: "/app/agenda", label: "Agenda", icon: "M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" },
   { href: "/app/pipeline", label: "Funil", icon: "M4 5h4v14H4V5Zm6 0h4v9h-4V5Zm6 0h4v5h-4V5Z" },
   { href: "/app/contacts", label: "Contatos", icon: "M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM21 19v-1a4 4 0 0 0-3-3.87M16 3.13a3.5 3.5 0 0 1 0 6.75" },
   { href: "/app/knowledge", label: "Assistente IA", icon: "M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4L12 3Zm6 11 1 2.4 2.4 1-2.4 1L18 21l-1-2.6-2.4-1 2.4-1L18 14Z" },

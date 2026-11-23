@@ -4,6 +4,7 @@ import { processWebhookEvent } from "@/modules/inbox/inbound";
 import { performSend } from "@/modules/inbox/outbound";
 import { refreshRadar } from "@/modules/radar/service";
 import { ProviderError } from "@/modules/whatsapp/provider";
+import { sendDueReminders } from "@/modules/agenda/reminders";
 
 async function handle(job: Job) {
   switch (job.type) {
@@ -20,6 +21,9 @@ async function handle(job: Job) {
       for (const o of orgs.rows) await withService((db) => refreshRadar(db, o.id));
       return;
     }
+    case "appointments.reminders":
+      await withService((db) => sendDueReminders(db));
+      return;
     default:
       throw new ProviderError(`tipo de job desconhecido: ${job.type}`, false);
   }
@@ -44,10 +48,11 @@ export async function runOnce(limit = 10): Promise<number> {
   return jobs.length;
 }
 
-/** Agenda o recálculo do Radar se não houver um pendente. */
-export async function scheduleRadar() {
+/** Agenda um job periódico se não houver um pendente do mesmo tipo. */
+export async function schedulePeriodic(type: "radar.refresh_all" | "appointments.reminders") {
   await withService(async (db) => {
-    const pending = await db.query("select 1 from jobs where type = 'radar.refresh_all' and status in ('queued','running') limit 1");
-    if (!pending.rowCount) await enqueue(db, "radar.refresh_all", {});
+    const pending = await db.query("select 1 from jobs where type = $1 and status in ('queued','running') limit 1", [type]);
+    if (!pending.rowCount) await enqueue(db, type, {});
   });
 }
+export const scheduleRadar = () => schedulePeriodic("radar.refresh_all");

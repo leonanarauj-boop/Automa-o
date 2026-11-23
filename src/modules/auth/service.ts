@@ -36,7 +36,7 @@ export async function seedOrganization(db: Db, orgId: string, segmentKey: string
   for (const tag of seg.tags) {
     await db.query("insert into tags (organization_id, name) values ($1,$2) on conflict do nothing", [orgId, tag]);
   }
-  for (const [kind, hours] of Object.entries(seg.radar)) {
+  for (const [kind, hours] of Object.entries({ ...seg.radar, appointment_unconfirmed: 24, no_show: 24 })) {
     await db.query(
       "insert into opportunity_rules (organization_id, kind, threshold_hours) values ($1,$2,$3) on conflict do nothing",
       [orgId, kind, hours],

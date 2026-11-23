@@ -5,7 +5,7 @@ export async function dashboardMetrics(db: Db, orgId: string, days = 30) {
   const r = await db.query<{
     new_contacts: string; prev_contacts: string; open_deals: string; open_value: string | null;
     won_count: string; won_value: string | null; lost_count: string; awaiting: string; tasks_due: string;
-    avg_first_response_min: string | null; demo_contacts: string;
+    avg_first_response_min: string | null; demo_contacts: string; appts_today: string; no_shows: string; attended_or_missed: string;
   }>(
     `with p as (select now() - make_interval(days => $2::int) as start, now() - make_interval(days => $2::int * 2) as prev_start)
      select
@@ -24,7 +24,11 @@ export async function dashboardMetrics(db: Db, orgId: string, days = 30) {
           lateral (select min(sent_at) sent_at from messages where conversation_id = c.id and direction = 'inbound') fi,
           lateral (select min(sent_at) sent_at from messages where conversation_id = c.id and direction = 'outbound' and sent_at > fi.sent_at) fo
           where c.organization_id = $1 and fi.sent_at >= p.start and fo.sent_at is not null) as avg_first_response_min,
-       (select count(*) from contacts where organization_id = $1 and is_demo and deleted_at is null) as demo_contacts`,
+       (select count(*) from contacts where organization_id = $1 and is_demo and deleted_at is null) as demo_contacts,
+       (select count(*) from appointments a join organizations o on o.id = a.organization_id
+          where a.organization_id = $1 and a.status in ('scheduled','confirmed') and (a.starts_at at time zone o.timezone)::date = (now() at time zone o.timezone)::date) as appts_today,
+       (select count(*) from appointments a, p where a.organization_id = $1 and a.status = 'no_show' and a.starts_at >= p.start) as no_shows,
+       (select count(*) from appointments a, p where a.organization_id = $1 and a.status in ('done','no_show') and a.starts_at >= p.start) as attended_or_missed`,
     [orgId, days],
   );
   const x = r.rows[0];
@@ -44,6 +48,8 @@ export async function dashboardMetrics(db: Db, orgId: string, days = 30) {
     tasksDue: Number(x.tasks_due),
     avgFirstResponseMin: x.avg_first_response_min === null ? null : Number(x.avg_first_response_min),
     demoContacts: Number(x.demo_contacts),
+    appointmentsToday: Number(x.appts_today),
+    noShowRate: Number(x.attended_or_missed) ? Number(x.no_shows) / Number(x.attended_or_missed) : null,
   };
 }
 

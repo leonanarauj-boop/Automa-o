@@ -1,5 +1,5 @@
 import type { Db } from "@/lib/db";
-import { evaluateRadar, type RadarRow, type RuleKind } from "./rules";
+import { evaluateAppointments, evaluateRadar, type AppointmentRow, type RadarRow, type RuleKind } from "./rules";
 
 /**
  * Recalcula os sinais do Radar de uma organização. Funciona tanto no contexto do tenant (RLS)
@@ -33,17 +33,28 @@ export async function refreshRadar(db: Db, orgId: string, now = new Date()) {
     [orgId],
   );
 
-  const candidates = evaluateRadar(rows.rows, thresholds, avgTicket, now);
+  const appts = await db.query<AppointmentRow>(
+    `select a.id as "appointmentId", a.contact_id as "contactId", c.display_name as "contactName", a.status, a.starts_at as "startsAt",
+            case when sv.price_type = 'fixed' then sv.price_cents::float8 end as "servicePriceCents",
+            exists (select 1 from appointments b where b.contact_id = a.contact_id and b.starts_at > a.starts_at and b.status in ('scheduled','confirmed','done')) as "hasLaterBooking",
+            to_char(a.starts_at at time zone o.timezone, 'DD/MM "às" HH24:MI') as label
+     from appointments a join contacts c on c.id = a.contact_id join organizations o on o.id = a.organization_id
+     left join products_services sv on sv.id = a.service_id
+     where a.organization_id = $1 and c.deleted_at is null and (
+       (a.status = 'scheduled' and a.starts_at between now() and now() + interval '8 days')
+       or (a.status = 'no_show' and a.starts_at > now() - interval '31 days'))
+     order by a.starts_at`, [orgId]);
+  const candidates = [...evaluateRadar(rows.rows, thresholds, avgTicket, now), ...evaluateAppointments(appts.rows, thresholds, now)];
   const keep: string[] = [];
   for (const c of candidates) {
     const r = await db.query<{ id: string }>(
-      `insert into opportunity_signals (organization_id, rule_kind, contact_id, deal_id, potential_value_cents, value_basis, reason, recommended_action)
-       values ($1,$2,$3,$4,$5,$6,$7,$8)
+      `insert into opportunity_signals (organization_id, rule_kind, contact_id, deal_id, potential_value_cents, value_basis, reason, recommended_action, appointment_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        on conflict (organization_id, rule_kind, contact_id, coalesce(deal_id, '00000000-0000-0000-0000-000000000000'::uuid)) where status = 'open'
        do update set potential_value_cents = excluded.potential_value_cents, value_basis = excluded.value_basis,
-                     reason = excluded.reason, recommended_action = excluded.recommended_action
+                     reason = excluded.reason, recommended_action = excluded.recommended_action, appointment_id = excluded.appointment_id
        returning id`,
-      [orgId, c.ruleKind, c.contactId, c.dealId, c.potentialValueCents, c.valueBasis, c.reason, c.recommendedAction],
+      [orgId, c.ruleKind, c.contactId, c.dealId, c.potentialValueCents, c.valueBasis, c.reason, c.recommendedAction, c.appointmentId ?? null],
     );
     keep.push(r.rows[0].id);
   }
@@ -74,7 +85,7 @@ export async function radarSummary(db: Db, orgId: string) {
   }>(
     `select
        count(*) filter (where status = 'open') as open_count,
-       sum(potential_value_cents) filter (where status = 'open' and value_basis = 'deal_value') as potential_deal,
+       sum(potential_value_cents) filter (where status = 'open' and value_basis in ('deal_value','service_price')) as potential_deal,
        sum(potential_value_cents) filter (where status = 'open' and value_basis = 'avg_ticket') as potential_estimated,
        count(*) filter (where status = 'open' and value_basis = 'unknown') as unknown_count,
        sum(recovered_value_cents) filter (where status = 'recovered' and resolved_at >= date_trunc('month', now())) as recovered_month,

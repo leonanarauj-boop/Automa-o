@@ -3,16 +3,18 @@
  * Princípio: valor POTENCIAL é sempre estimativa; valor RECUPERADO só existe quando um negócio
  * ligado ao sinal é marcado como ganho.
  */
-export type RuleKind = "awaiting_reply" | "lead_silent" | "deal_stale";
+export type RuleKind = "awaiting_reply" | "lead_silent" | "deal_stale" | "appointment_unconfirmed" | "no_show";
 
 export const RULE_LABELS: Record<RuleKind, string> = {
   awaiting_reply: "Cliente aguardando resposta",
   lead_silent: "Cliente parou de responder",
   deal_stale: "Negócio parado",
+  appointment_unconfirmed: "Agendamento não confirmado",
+  no_show: "Faltou e não reagendou",
 };
 
 /** Prioridade quando o mesmo contato dispara mais de uma regra (menor = mais urgente). */
-const PRIORITY: Record<RuleKind, number> = { awaiting_reply: 0, lead_silent: 1, deal_stale: 2 };
+const PRIORITY: Record<RuleKind, number> = { awaiting_reply: 0, lead_silent: 1, deal_stale: 2, appointment_unconfirmed: 3, no_show: 4 };
 
 export interface RadarRow {
   contactId: string;
@@ -31,9 +33,51 @@ export interface Candidate {
   contactId: string;
   dealId: string | null;
   potentialValueCents: number | null;
-  valueBasis: "deal_value" | "avg_ticket" | "unknown";
+  valueBasis: "deal_value" | "avg_ticket" | "service_price" | "unknown";
   reason: string;
   recommendedAction: string;
+  appointmentId?: string | null;
+}
+
+export interface AppointmentRow {
+  appointmentId: string;
+  contactId: string;
+  contactName: string;
+  status: string;
+  startsAt: Date;
+  servicePriceCents: number | null;
+  hasLaterBooking: boolean;
+  label: string; // "dd/mm às HH:MM"
+}
+
+/** Alertas da agenda: não confirmados perto do horário e faltas sem reagendamento. */
+export function evaluateAppointments(rows: AppointmentRow[], thresholds: Partial<Record<RuleKind, number>>, now = new Date()): Candidate[] {
+  const out: Candidate[] = [];
+  const seen = new Set<string>();
+  for (const a of rows) {
+    const value = a.servicePriceCents && a.servicePriceCents > 0
+      ? { potentialValueCents: a.servicePriceCents, valueBasis: "service_price" as const }
+      : { potentialValueCents: null, valueBasis: "unknown" as const };
+    const untilStart = a.startsAt.getTime() - now.getTime();
+    if (thresholds.appointment_unconfirmed && a.status === "scheduled" && untilStart > 0 && untilStart <= thresholds.appointment_unconfirmed * HOUR) {
+      const key = `u:${a.contactId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ruleKind: "appointment_unconfirmed", contactId: a.contactId, dealId: null, appointmentId: a.appointmentId, ...value,
+        reason: `${a.contactName} tem agendamento em ${a.label} ainda não confirmado.`,
+        recommendedAction: "Confirmar a presença (lembrete ou ligação) e liberar o horário se o cliente não puder." });
+    }
+    const since = now.getTime() - a.startsAt.getTime();
+    if (thresholds.no_show && a.status === "no_show" && !a.hasLaterBooking && since >= thresholds.no_show * HOUR && since <= 30 * 24 * HOUR) {
+      const key = `n:${a.contactId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ ruleKind: "no_show", contactId: a.contactId, dealId: null, appointmentId: a.appointmentId, ...value,
+        reason: `${a.contactName} faltou ao agendamento de ${a.label} e não remarcou.`,
+        recommendedAction: "Entrar em contato com cordialidade e oferecer novos horários." });
+    }
+  }
+  return out;
 }
 
 const HOUR = 3600 * 1000;

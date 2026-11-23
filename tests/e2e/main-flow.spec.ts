@@ -83,6 +83,33 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await expect(page.getByText("Conectado")).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/06-config.png`, fullPage: true });
 
+  // Agenda: demonstração visível, cadastro de profissional e agendamento por horário livre
+  await page.goto("/app/agenda");
+  await expect(page.getByText("Dra. Exemplo (DEMO)")).toBeVisible();
+  await page.goto("/app/agenda/settings");
+  await page.getByLabel("Nome do profissional").fill("Dra. Paula");
+  await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Horário de Dra. Paula" })).toBeVisible();
+  const spDate = (n: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(Date.now() + 86400_000 * n));
+  let offset = 7;
+  while ([0, 6].includes(new Date(`${spDate(offset)}T12:00:00Z`).getUTCDay())) offset++; // próximo dia útil no fuso da empresa
+  const tomorrow = spDate(offset);
+  await page.goto(`/app/agenda?date=${tomorrow}&novo=1`);
+  await page.getByLabel("Cliente").selectOption({ label: "Helena Souza" });
+  await page.getByLabel("Profissional").selectOption({ label: "Dra. Paula" });
+  const slot = page.getByRole("radio").first();
+  await expect(slot).toBeVisible();
+  {
+    await slot.click();
+    await page.getByRole("button", { name: "Agendar" }).click();
+    await expect(page.getByText("Agendamento criado.")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Helena Souza, Agendado/ })).toBeVisible();
+    await page.getByRole("link", { name: /Helena Souza, Agendado/ }).click();
+    await page.getByRole("button", { name: "Confirmar presença" }).click();
+    await expect(page.getByText("Confirmado").first()).toBeVisible();
+  }
+  if (shots) await page.screenshot({ path: `${shots}/09-agenda.png`, fullPage: true });
+
   // Assistente IA: cadastra catálogo e base; sem chave configurada, a interface avisa e não oferece botões de IA
   await page.goto("/app/knowledge");
   await expect(page.getByText("A IA ainda não está ativa")).toBeVisible();

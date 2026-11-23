@@ -163,7 +163,7 @@ export async function updateRulesAction(_: ActionResult, fd: FormData): Promise<
   return safeAction(async () => {
     await tenant(async (db, s) => {
       requireManager(s);
-      for (const kind of ["awaiting_reply", "lead_silent", "deal_stale"] as const) {
+      for (const kind of ["awaiting_reply", "lead_silent", "deal_stale", "appointment_unconfirmed", "no_show"] as const) {
         const hours = z.coerce.number().int("Use horas inteiras").min(1, "Mínimo de 1 hora").max(24 * 90, "Máximo de 90 dias").parse(str(fd, kind));
         await db.query("update opportunity_rules set threshold_hours = $2, active = $3 where kind = $1", [kind, hours, fd.get(`${kind}_active`) === "on"]);
       }

@@ -6,19 +6,22 @@ import { loadEnvFile } from "node:process";
 try { loadEnvFile(); } catch { /* usa variáveis do ambiente */ }
 
 const RADAR_EVERY_MS = 15 * 60 * 1000;
+const REMINDERS_EVERY_MS = 5 * 60 * 1000;
 
 async function main() {
-  const { runOnce, scheduleRadar } = await import("./handlers");
+  const { runOnce, schedulePeriodic } = await import("./handlers");
   const { closePool } = await import("@/lib/db");
   let stopping = false;
   const stop = () => { stopping = true; };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
   let lastRadar = 0;
+  let lastReminders = 0;
   console.log(JSON.stringify({ level: "info", msg: "worker iniciado" }));
   while (!stopping) {
     try {
-      if (Date.now() - lastRadar > RADAR_EVERY_MS) { await scheduleRadar(); lastRadar = Date.now(); }
+      if (Date.now() - lastRadar > RADAR_EVERY_MS) { await schedulePeriodic("radar.refresh_all"); lastRadar = Date.now(); }
+      if (Date.now() - lastReminders > REMINDERS_EVERY_MS) { await schedulePeriodic("appointments.reminders"); lastReminders = Date.now(); }
       const n = await runOnce(20);
       if (n === 0) await new Promise((r) => setTimeout(r, 1000));
     } catch (e) {

@@ -88,9 +88,36 @@ export async function seedDemo(db: Db, orgId: string, userId: string) {
        stage.kind === "won" ? lastActivity : null, stage.kind === "lost" ? "Preço" : null, lastActivity],
     );
   }
+  await seedDemoAgenda(db, orgId, userId);
   return true;
+}
+
+/** Agenda de demonstração: uma profissional (DEMO) e agendamentos ligados aos contatos de exemplo. */
+async function seedDemoAgenda(db: Db, orgId: string, userId: string) {
+  const p = await db.query<{ id: string }>("insert into professionals (organization_id, name, is_demo) values ($1, 'Dra. Exemplo (DEMO)', true) returning id", [orgId]);
+  const pid = p.rows[0].id;
+  for (let wd = 1; wd <= 6; wd++) {
+    await db.query("insert into availability_rules (organization_id, professional_id, weekday, start_time, end_time) values ($1,$2,$3,'08:00','12:00'), ($1,$2,$3,'13:00','18:00')", [orgId, pid, wd]);
+  }
+  const plan: { name: string; dayOffset: number; time: string; status: string; minutes: number }[] = [
+    { name: "Carlos Mendes (DEMO)", dayOffset: 1, time: "14:00", status: "scheduled", minutes: 30 },
+    { name: "Fernanda Lima (DEMO)", dayOffset: -1, time: "10:00", status: "done", minutes: 60 },
+    { name: "Paulo Rocha (DEMO)", dayOffset: -3, time: "09:00", status: "no_show", minutes: 30 },
+    { name: "Juliana Prado (DEMO)", dayOffset: 0, time: "16:00", status: "confirmed", minutes: 45 },
+  ];
+  for (const a of plan) {
+    await db.query(
+      `with tz as (select timezone from organizations where id = $1)
+       insert into appointments (organization_id, contact_id, professional_id, starts_at, ends_at, status, source, is_demo, created_by, confirmed_at, confirmed_via)
+       select $1, c.id, $2, s.at, s.at + make_interval(mins => $6), $5, 'demo', true, $7,
+              case when $5 = 'confirmed' then now() end, case when $5 = 'confirmed' then 'user' end
+       from contacts c, tz, lateral (select ((current_date + $3::int) + $4::time) at time zone tz.timezone as at) s
+       where c.organization_id = $1 and c.display_name = $8 and c.is_demo`,
+      [orgId, pid, a.dayOffset, a.time, a.status, a.minutes, userId, a.name]);
+  }
 }
 
 export async function removeDemo(db: Db) {
   await db.query("delete from contacts where is_demo");
+  await db.query("delete from professionals where is_demo");
 }

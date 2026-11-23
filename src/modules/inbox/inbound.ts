@@ -1,5 +1,6 @@
 import type { Db } from "@/lib/db";
 import { parseWebhook, type InboundMessage, type StatusUpdate } from "@/modules/whatsapp/webhook";
+import { confirmFromReply } from "@/modules/agenda/reminders";
 import { isOptInMessage, isOptOutMessage, serviceWindowExpiry, shouldApplyStatus } from "@/modules/whatsapp/rules";
 
 /**
@@ -86,6 +87,8 @@ export async function handleInbound(db: Db, m: InboundMessage) {
     "update deals set last_activity_at = greatest(last_activity_at, $2) where contact_id = $1 and status = 'open'",
     [contactId, m.timestamp],
   );
+
+  await confirmFromReply(db, orgId, contactId, m.text);
 
   if (isOptOutMessage(m.text) || isOptInMessage(m.text)) {
     const status = isOptOutMessage(m.text) ? "revoked" : "granted";

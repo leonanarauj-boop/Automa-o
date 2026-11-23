@@ -13,6 +13,8 @@ const RULE_HELP: Record<RuleKind, string> = {
   awaiting_reply: "Horas desde a última mensagem do cliente sem resposta da equipe.",
   lead_silent: "Horas desde a última mensagem da equipe sem retorno do cliente (só com negócio aberto).",
   deal_stale: "Horas sem nenhuma interação em um negócio aberto.",
+  appointment_unconfirmed: "Alerta quando faltar este número de horas para um agendamento ainda não confirmado.",
+  no_show: "Horas depois de uma falta sem novo agendamento para gerar o alerta (até 30 dias).",
 };
 
 export default async function Settings() {

@@ -14,13 +14,15 @@ export default async function Radar() {
     signals: (await db.query<{
       id: string; rule_kind: RuleKind; reason: string; recommended_action: string; potential_value_cents: string | null; value_basis: string;
       detected_at: Date; contact_id: string; display_name: string; is_demo: boolean; conversation_id: string | null; owner: string | null;
+      appointment_id: string | null; appointment_date: string | null;
     }>(
-      `select s.id, s.rule_kind, s.reason, s.recommended_action, s.potential_value_cents, s.value_basis, s.detected_at,
+      `select s.id, s.rule_kind, s.reason, s.recommended_action, s.potential_value_cents, s.value_basis, s.detected_at, s.appointment_id,
+              (select to_char(a.starts_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD') from appointments a where a.id = s.appointment_id) as appointment_date,
               c.id as contact_id, c.display_name, c.is_demo, u.full_name as owner,
               (select id from conversations cv where cv.contact_id = c.id order by last_message_at desc nulls last limit 1) as conversation_id
        from opportunity_signals s join contacts c on c.id = s.contact_id left join users u on u.id = c.owner_user_id
        where s.status = 'open'
-       order by case s.rule_kind when 'awaiting_reply' then 0 else 1 end, s.potential_value_cents desc nulls last, s.detected_at`,
+       order by case s.rule_kind when 'awaiting_reply' then 0 when 'appointment_unconfirmed' then 1 else 2 end, s.potential_value_cents desc nulls last, s.detected_at`,
     )).rows,
     recovered: (await db.query<{ id: string; display_name: string; recovered_value_cents: string; resolved_at: Date }>(
       `select s.id, c.display_name, s.recovered_value_cents, s.resolved_at from opportunity_signals s join contacts c on c.id = s.contact_id
@@ -37,7 +39,7 @@ export default async function Radar() {
         <Card className="p-4">
           <p className="text-xs font-medium text-muted">Valor em negócios parados</p>
           <p className="mt-1 text-2xl font-semibold text-money tabular-nums">{money(summary.potentialFromDeals)}</p>
-          <p className="mt-1 text-xs text-muted">Soma do valor cadastrado nos negócios. É potencial, não venda.</p>
+          <p className="mt-1 text-xs text-muted">Soma dos valores cadastrados em negócios e serviços agendados. É potencial, não venda.</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-muted">Estimativa adicional</p>
@@ -71,10 +73,12 @@ export default async function Radar() {
                 <div className="flex items-center gap-3 md:flex-col md:items-end">
                   <p className="text-right">
                     <span className="block font-semibold tabular-nums">{s.potential_value_cents ? money(s.potential_value_cents) : "—"}</span>
-                    <span className="text-xs text-muted">{s.value_basis === "deal_value" ? "valor do negócio" : s.value_basis === "avg_ticket" ? "estimado (ticket médio)" : "sem valor"}</span>
+                    <span className="text-xs text-muted">{s.value_basis === "deal_value" ? "valor do negócio" : s.value_basis === "avg_ticket" ? "estimado (ticket médio)" : s.value_basis === "service_price" ? "valor do serviço" : "sem valor"}</span>
                   </p>
                   <div className="flex gap-2">
-                    {s.conversation_id && <Link href={`/app/inbox?c=${s.conversation_id}`} className={buttonClass("primary", "sm")}>Agir</Link>}
+                    {s.appointment_id && s.rule_kind === "appointment_unconfirmed"
+                      ? <Link href={`/app/agenda?date=${s.appointment_date}&a=${s.appointment_id}`} className={buttonClass("primary", "sm")}>Ver agendamento</Link>
+                      : s.conversation_id && <Link href={`/app/inbox?c=${s.conversation_id}`} className={buttonClass("primary", "sm")}>Agir</Link>}
                     <form action={dismissSignalAction}><input type="hidden" name="signalId" value={s.id} /><button className={buttonClass("ghost", "sm")}>Dispensar</button></form>
                   </div>
                 </div>

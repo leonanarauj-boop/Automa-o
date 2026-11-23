@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-11-23
+### Adicionado
+- Agenda: profissionais, horário semanal, bloqueios, visão do dia, horários livres, encaixe, confirmação, remarcação, cancelamento e faltas.
+- Restrição de exclusão no Postgres impedindo sobreposição de agendamentos ativos (testada com 20 pedidos simultâneos).
+- Lembrete automático pelo WhatsApp com template aprovado e confirmação automática por resposta.
+- Radar: alertas de agendamento não confirmado e de falta sem reagendamento.
+- Agendamentos na ficha do cliente, no painel e nos dados de demonstração.
+
 ## 0.2.0 — 2026-11-22
 ### Adicionado
 - Copiloto de IA (Claude): sugestão de resposta com revisão humana e análise da conversa com aplicação seletiva no CRM.

@@ -95,6 +95,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge tone={m.awaitingReply ? "danger" : "neutral"}>{m.awaitingReply} aguardando resposta</Badge>
               <Badge tone={m.tasksDue ? "money" : "neutral"}>{m.tasksDue} tarefa(s) para hoje</Badge>
+              <Link href="/app/agenda"><Badge tone="primary">{m.appointmentsToday} agendamento(s) hoje</Badge></Link>
+              {m.noShowRate !== null && <Badge tone={m.noShowRate > 0.15 ? "danger" : "neutral"}>faltas: {Math.round(m.noShowRate * 100)}%</Badge>}
             </div>
           </div>
         </Card>

@@ -7,6 +7,7 @@ import { ActionForm, SubmitButton } from "@/components/action-form";
 import { Badge, Card, CardHeader, DemoBadge, Field, Input, LinkButton, PageHeader, Select, Textarea } from "@/components/ui";
 import { addNoteAction, consentAction, createDealAction, createTaskAction, setTagsAction, toggleTaskAction, updateContactAction } from "../../actions";
 import { ContactFields } from "../contact-fields";
+import { contactAppointments, STATUS_LABEL } from "@/modules/agenda/service";
 import { AnalysisCard } from "@/components/ai/analysis-card";
 import { aiProvider } from "@/modules/ai/anthropic";
 import type { AnalysisPayload } from "@/modules/ai/copilot";
@@ -20,7 +21,8 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
     const analysis = (await db.query<{ id: string; payload: AnalysisPayload }>(
       "select id, payload from ai_suggestions where contact_id = $1 and kind = 'analysis' and status = 'pending' order by created_at desc limit 1", [id])).rows[0] ?? null;
     const aiEnabled = (await db.query<{ ai_enabled: boolean }>("select ai_enabled from organizations limit 1")).rows[0].ai_enabled;
-    return { ...c, analysis, aiEnabled, allTags: (await db.query<{ id: string; name: string }>("select id, name from tags order by name")).rows, pipeline: await getDefaultPipeline(db) };
+    const appointments = await contactAppointments(db, id);
+    return { ...c, analysis, aiEnabled, appointments, allTags: (await db.query<{ id: string; name: string }>("select id, name from tags order by name")).rows, pipeline: await getDefaultPipeline(db) };
   });
   if (!data) notFound();
   const c = data.contact;
@@ -99,6 +101,23 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               <div className="flex justify-between gap-2"><dt className="text-muted">Última mensagem enviada</dt><dd>{relative(c.last_outbound_at)}</dd></div>
               <div className="flex justify-between gap-2"><dt className="text-muted">Cliente desde</dt><dd>{dateTime(c.created_at)}</dd></div>
             </dl>
+          </Card>
+
+          <Card>
+            <CardHeader title="Agendamentos" action={<Link href={`/app/agenda?novo=1&contato=${c.id}`} className="text-sm text-primary hover:underline">Agendar</Link>} />
+            {data.appointments.length === 0 ? <p className="px-5 py-4 text-sm text-muted">Nenhum agendamento.</p> : (
+              <ul className="divide-y divide-border text-sm">
+                {data.appointments.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-2 px-5 py-2.5">
+                    <Link href={`/app/agenda?date=${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(a.starts_at)}&a=${a.id}`} className="hover:underline">
+                      {dateTime(a.starts_at)}<span className="block text-xs text-muted">{a.professional_name}{a.service_name ? ` · ${a.service_name}` : ""}</span>
+                    </Link>
+                    <Badge tone={a.status === "no_show" ? "danger" : a.status === "confirmed" ? "success" : a.status === "scheduled" ? "primary" : "neutral"}>{STATUS_LABEL[a.status]}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.appointments.some((a) => a.status === "no_show") && <p className="border-t border-border px-5 py-2 text-xs text-danger">{data.appointments.filter((a) => a.status === "no_show").length} falta(s) registrada(s)</p>}
           </Card>
 
           <Card>

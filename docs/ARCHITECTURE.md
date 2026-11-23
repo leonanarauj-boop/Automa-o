@@ -34,3 +34,5 @@ tests/unit | integration | e2e
 ## Dois caminhos de acesso ao banco
 - `withTenant(ctx, fn)`: requisições de usuário. Papel `app_user`, sujeito a RLS. **Padrão.**
 - `withService(fn)`: cadastro, login, webhooks, worker, conexão de canal. Ignora RLS; toda consulta filtra `organization_id` explicitamente. Uso deve ser revisado com atenção.
+
+**ADR-007 — Consistência da agenda no banco.** Conflitos de horário são impedidos por uma restrição de exclusão (`btree_gist` + `tstzrange`), não por verificação na aplicação, porque só o banco garante a regra sob concorrência. A aplicação traduz o erro `23P01` em "horário acabou de ser ocupado".
