@@ -32,14 +32,13 @@ IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de
 
 ## Como rodar localmente
 
-Pré-requisitos: Node.js 20+ e PostgreSQL 15+ (local, Supabase, Neon, RDS…).
+Pré-requisitos: **Node.js 22** e **Docker Desktop** (para o banco). Sem Docker, qualquer PostgreSQL 15+ serve (ajuste `DATABASE_URL` no `.env`).
 
 ```bash
 npm install
-cp .env.example .env          # preencha DATABASE_URL e gere ENCRYPTION_KEY (instrução no arquivo)
-npm run db:migrate            # cria as tabelas
-npm run dev                   # aplicação em http://localhost:3000
-npm run worker                # em outro terminal: processa webhooks, envios e o Radar
+docker compose up -d      # banco PostgreSQL local
+npm run setup             # cria o .env com segredos de desenvolvimento e aplica as migrações
+npm run dev:all           # app (http://localhost:3000) + worker juntos
 ```
 
 Crie uma conta em `/signup` e clique em **Carregar demonstração** no painel para ver o sistema com dados de exemplo.

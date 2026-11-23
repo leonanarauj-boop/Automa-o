@@ -17,7 +17,9 @@
     "ai:smoke": "tsx scripts/ai-smoke.ts",
     "admin:grant": "tsx scripts/grant-admin.ts",
     "check:env": "tsx scripts/check-env.ts",
-    "worker:start": "tsx src/worker/index.ts"
+    "worker:start": "tsx src/worker/index.ts",
+    "setup": "tsx scripts/setup.ts",
+    "dev:all": "node scripts/dev-all.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
