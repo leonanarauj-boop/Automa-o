@@ -22,7 +22,7 @@ export async function confirmEnrollmentAction(code: string): Promise<{ codes?: s
     const codes = await confirmEnrollment(s.userId, s.sessionId, code);
     return codes.join(",");
   });
-  revalidatePath("/", "layout");
+  // sem revalidar aqui: a página recarregaria e os códigos de recuperação sumiriam antes de serem guardados
   return r?.error ? { error: r.error } : { codes: r?.message?.split(",") };
 }
 

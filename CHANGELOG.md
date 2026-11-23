@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-11-23
+### Adicionado
+- Verificação em duas etapas (TOTP, RFC 6238) com QR code, 10 códigos de recuperação, bloqueio de reuso de código, 5 tentativas por desafio; redefinição de senha não dispensa o código; empresa pode exigir de donos e gestores.
+- Painel da plataforma (`/admin`): visão geral (MRR, testes, inadimplência, custo de IA), empresas, cupons e saúde operacional; ações auditadas também no histórico da empresa; sem acesso a conteúdo de clientes; exige verificação em duas etapas.
+- Agenda: visão semanal por profissional, com expediente e bloqueios.
+### Corrigido
+- Códigos de recuperação sumiam da tela logo após a ativação.
+- Formulários voltaram a funcionar mesmo antes de o JavaScript carregar.
+
 ## 0.6.0 — 2026-11-23
 ### Adicionado
 - Convites de equipe por e-mail (link de uso único, 7 dias), aceite com conta nova ou existente, revogação, limite de usuários do plano.

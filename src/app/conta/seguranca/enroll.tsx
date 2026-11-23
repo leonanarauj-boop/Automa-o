@@ -21,7 +21,7 @@ export function Enroll() {
         <ul className="grid grid-cols-2 gap-2 rounded-lg bg-surface-2 p-4 font-mono text-sm">{codes.map((c) => <li key={c}>{c}</li>)}</ul>
         <div className="flex gap-2">
           <button type="button" className={buttonClass("secondary", "sm")} onClick={() => navigator.clipboard?.writeText(codes.join("\n"))}>Copiar códigos</button>
-          <button type="button" className={buttonClass("primary", "sm")} onClick={() => router.push("/app")}>Já guardei, continuar</button>
+          <button type="button" className={buttonClass("primary", "sm")} onClick={() => { router.push("/app"); router.refresh(); }}>Já guardei, continuar</button>
         </div>
       </div>
     );

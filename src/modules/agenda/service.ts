@@ -247,3 +247,40 @@ export async function contactAppointments(db: Db, contactId: string) {
 
 export const STATUS_LABEL: Record<Status, string> = { scheduled: "Agendado", confirmed: "Confirmado", canceled: "Cancelado", no_show: "Faltou", done: "Atendido" };
 export type AppointmentStatus = Status;
+
+/** Visão semanal de um profissional: 7 dias a partir de `weekStart` (segunda-feira), no fuso da organização. */
+export async function weekView(db: Db, orgId: string, weekStart: string, professionalId: string) {
+  dateStr.parse(weekStart);
+  const appointments = (await db.query<DayAppointment & { day: number }>(
+    `with tz as (select timezone from organizations where id = $1)
+     select a.id, a.contact_id, c.display_name as contact_name, a.professional_id, s.name as service_name, a.starts_at, a.ends_at, a.status, a.is_demo,
+            a.confirmed_via, a.reminder_sent_at,
+            ((a.starts_at at time zone tz.timezone)::date - $2::date) as day,
+            (extract(hour from a.starts_at at time zone tz.timezone) * 60 + extract(minute from a.starts_at at time zone tz.timezone))::int as start_min,
+            (extract(hour from a.ends_at at time zone tz.timezone) * 60 + extract(minute from a.ends_at at time zone tz.timezone))::int as end_min
+     from appointments a join contacts c on c.id = a.contact_id left join products_services s on s.id = a.service_id, tz
+     where a.professional_id = $3 and a.status <> 'canceled'
+       and (a.starts_at at time zone tz.timezone)::date >= $2::date and (a.starts_at at time zone tz.timezone)::date < $2::date + 7
+     order by a.starts_at`, [orgId, weekStart, professionalId])).rows;
+  const rules = (await db.query<{ weekday: number; start_min: number; end_min: number }>(
+    `select weekday, (extract(epoch from start_time) / 60)::int start_min, (extract(epoch from end_time) / 60)::int end_min
+     from availability_rules where professional_id = $1`, [professionalId])).rows;
+  const blocks = (await db.query<{ day: number; start_min: number; end_min: number; reason: string | null }>(
+    `with tz as (select timezone from organizations where id = $1)
+     select ((x.starts_at at time zone tz.timezone)::date - $2::date) as day,
+            (extract(hour from x.starts_at at time zone tz.timezone) * 60 + extract(minute from x.starts_at at time zone tz.timezone))::int start_min,
+            (extract(hour from x.ends_at at time zone tz.timezone) * 60 + extract(minute from x.ends_at at time zone tz.timezone))::int end_min, x.reason
+     from availability_exceptions x, tz
+     where x.professional_id = $3 and (x.starts_at at time zone tz.timezone)::date between $2::date and $2::date + 6`, [orgId, weekStart, professionalId])).rows;
+  const minH = Math.min(8, ...rules.map((r) => Math.floor(r.start_min / 60)), ...appointments.map((a) => Math.floor(a.start_min / 60)));
+  const maxH = Math.max(18, ...rules.map((r) => Math.ceil(r.end_min / 60)), ...appointments.map((a) => Math.ceil(a.end_min / 60)));
+  return { appointments, rules, blocks, startHour: minH, endHour: Math.min(24, maxH) };
+}
+
+/** Segunda-feira da semana de uma data (YYYY-MM-DD). */
+export function mondayOf(date: string) {
+  const d = new Date(`${date}T12:00:00Z`);
+  const dow = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() - ((dow + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}

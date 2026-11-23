@@ -8,7 +8,7 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 
 | Área | Funcionalidades |
 |---|---|
-| Contas e segurança | Cadastro, login (bloqueio após 5 falhas em 15 min), sessões seguras (cookie httpOnly, token com hash), papéis dono/gestor/atendente, auditoria, **esqueci minha senha** (link de uso único, 60 min) e alteração de senha |
+| Contas e segurança | Cadastro, login (bloqueio após 5 falhas em 15 min), sessões seguras (cookie httpOnly, token com hash), papéis dono/gestor/atendente, auditoria, **esqueci minha senha** (link de uso único, 60 min), alteração de senha e **verificação em duas etapas** (aplicativo autenticador, códigos de recuperação, obrigatória por política da empresa) |
 | **Equipe** | Convites por e-mail com link de uso único (7 dias), limite de usuários do plano, troca de papel, desativação imediata, várias empresas por usuário com seletor |
 | Multi-tenant | Isolamento por **Row Level Security** do Postgres em todas as tabelas de clientes, comprovado por testes automatizados |
 | Onboarding | Funil, etiquetas e regras do Radar pré-configurados por segmento (clínica, serviços, imobiliária, educação, varejo, outro) |
@@ -23,11 +23,12 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 | **Campanhas** | Segmentação, pré-visualização com motivos de exclusão, consentimento obrigatório, controle de frequência, limite diário da Meta, aprovação por gestor, agendamento, envio de teste, envio escalonado e resultados (entregues, lidas, respostas). Ver [AUTOMATIONS.md](docs/AUTOMATIONS.md) |
 | **Automações** | 5 gatilhos e 11 tipos de passo, modelos prontos, versões, simulação, histórico por passo, reprocessamento, proteção contra laços e duplicidade, webhooks seguros |
 | **Cobrança** | Planos com limites, teste de 14 dias, assinatura pelo Asaas (Pix, boleto ou cartão na página segura do gateway), cupons, upgrade/downgrade, inadimplência com carência e acesso restrito, cancelamento, faturas e consumo. Ver [BILLING.md](docs/BILLING.md) |
+| **Painel da plataforma** (`/admin`) | MRR, empresas, testes, inadimplência, custo de IA, saúde operacional (jobs, webhooks, e-mails), detalhe da empresa só com contagens, estender teste, créditos de IA, bloqueio manual, cupons. Acesso: `npm run admin:grant -- email` + verificação em duas etapas |
 | Demonstração | Dados de exemplo marcados como **DEMO**, removíveis com um clique |
 | Infra | Fila de jobs em Postgres com retentativas e backoff, worker separado, logs estruturados |
 
 ## O que ainda NÃO existe (próximas entregas)
-IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de espera e Google Calendar, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
+IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de espera e Google Calendar, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
 
 ## Como rodar localmente
 
@@ -62,7 +63,7 @@ npm run ai:smoke           # 2 chamadas reais à API da Claude (requer ANTHROPIC
 ## Antes do lançamento (bloqueadores)
 - Revisão jurídica: Termos de Uso, Política de Privacidade, DPA (ver [LGPD.md](docs/LGPD.md)).
 - Aprovação do app na Meta (verificação da empresa, permissões, Tech Provider).
-- Validar a cobrança no sandbox do Asaas; configurar SMTP (convites e senha); MFA para donos.
+- Validar a cobrança no sandbox do Asaas; configurar SMTP (convites e senha).
 - Backups e monitoramento configurados no provedor; pentest externo.
 
 ## Documentação

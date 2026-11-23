@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { tenant } from "@/lib/session";
-import { appointmentDetail, dayView, STATUS_LABEL } from "@/modules/agenda/service";
+import { appointmentDetail, dayView, mondayOf, STATUS_LABEL, weekView } from "@/modules/agenda/service";
+import { WeekGrid } from "./week";
 import { dateTime, phone } from "@/lib/format";
 import { Card, EmptyState, LinkButton, PageHeader, buttonClass, cx } from "@/components/ui";
 import { NewAppointment } from "./new-appointment";
@@ -29,9 +30,10 @@ const STATUS_STYLE: Record<string, string> = {
   done: "border-border bg-surface-2 text-muted",
 };
 
-export default async function Agenda({ searchParams }: { searchParams: Promise<{ date?: string; a?: string; novo?: string; contato?: string }> }) {
+export default async function Agenda({ searchParams }: { searchParams: Promise<{ date?: string; a?: string; novo?: string; contato?: string; visao?: string; prof?: string }> }) {
   const sp = await searchParams;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : todayLocal();
+  if (sp.visao === "semana") return <WeekPage date={date} prof={sp.prof} />;
   const data = await tenant(async (db, s) => {
     const view = await dayView(db, s.orgId, date);
     const detail = sp.a && /^[0-9a-f-]{36}$/.test(sp.a) ? await appointmentDetail(db, sp.a) : null;
@@ -63,6 +65,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
           <Link href="/app/agenda" className={buttonClass("secondary", "sm")}>Hoje</Link>
           <Link href={`/app/agenda?date=${shift(date, 1)}`} className={buttonClass("secondary", "sm")} aria-label="Próximo dia">→</Link>
           <form className="flex"><label htmlFor="date" className="sr-only">Ir para data</label><input id="date" name="date" type="date" defaultValue={date} className="h-8 rounded-lg border border-border bg-surface px-2 text-sm" /><button className={cx(buttonClass("ghost", "sm"), "ml-1")}>Ir</button></form>
+          <ViewToggle date={date} active="dia" />
           <Link href="/app/agenda/settings" className={buttonClass("ghost", "sm")}>Configurar</Link>
           {view.professionals.length > 0 && <LinkButton href={q({ novo: "1" })} size="sm">Novo agendamento</LinkButton>}
         </div>} />
@@ -122,6 +125,56 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
           )}
         </div>
       )}
+    </>
+  );
+}
+
+function ViewToggle({ date, active, prof }: { date: string; active: "dia" | "semana"; prof?: string }) {
+  const cls = (on: boolean) => cx("px-3 py-1.5 text-sm", on ? "bg-primary-soft font-medium text-primary" : "text-muted hover:bg-surface-2");
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-border" role="tablist" aria-label="Visão">
+      <Link role="tab" aria-selected={active === "dia"} href={`/app/agenda?date=${date}`} className={cls(active === "dia")}>Dia</Link>
+      <Link role="tab" aria-selected={active === "semana"} href={`/app/agenda?visao=semana&date=${date}${prof ? `&prof=${prof}` : ""}`} className={cls(active === "semana")}>Semana</Link>
+    </div>
+  );
+}
+
+async function WeekPage({ date, prof }: { date: string; prof?: string }) {
+  const weekStart = mondayOf(date);
+  const d = await tenant(async (db, s) => {
+    const professionals = (await db.query<{ id: string; name: string }>("select id, name from professionals where active order by created_at")).rows;
+    const selected = professionals.find((p) => p.id === prof) ?? professionals[0];
+    return { professionals, selected, data: selected ? await weekView(db, s.orgId, weekStart, selected.id) : null };
+  });
+  const end = shift(weekStart, 6);
+  const fmt = (x: string) => `${x.slice(8, 10)}/${x.slice(5, 7)}`;
+  const base = (dt: string) => `/app/agenda?visao=semana&date=${dt}${d.selected ? `&prof=${d.selected.id}` : ""}`;
+  return (
+    <>
+      <PageHeader title="Agenda" description={`Semana de ${fmt(weekStart)} a ${fmt(end)}${d.selected ? ` · ${d.selected.name}` : ""}`}
+        action={<div className="flex flex-wrap items-center gap-2">
+          <Link href={base(shift(weekStart, -7))} className={buttonClass("secondary", "sm")} aria-label="Semana anterior">←</Link>
+          <Link href={base(todayLocal())} className={buttonClass("secondary", "sm")}>Esta semana</Link>
+          <Link href={base(shift(weekStart, 7))} className={buttonClass("secondary", "sm")} aria-label="Próxima semana">→</Link>
+          {d.professionals.length > 1 && (
+            <form className="flex items-center gap-1">
+              <input type="hidden" name="visao" value="semana" /><input type="hidden" name="date" value={weekStart} />
+              <label htmlFor="prof" className="sr-only">Profissional</label>
+              <select id="prof" name="prof" defaultValue={d.selected?.id} className="h-8 rounded-lg border border-border bg-surface px-2 text-sm">
+                {d.professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button className={buttonClass("ghost", "sm")}>Ver</button>
+            </form>
+          )}
+          <ViewToggle date={date} active="semana" prof={d.selected?.id} />
+          <LinkButton href={`/app/agenda?date=${date}&novo=1`} size="sm">Novo agendamento</LinkButton>
+        </div>} />
+      {!d.selected || !d.data ? (
+        <Card><EmptyState title="Cadastre os profissionais para começar" action={<LinkButton href="/app/agenda/settings">Configurar agenda</LinkButton>} /></Card>
+      ) : (
+        <Card className="overflow-x-auto"><WeekGrid weekStart={weekStart} today={todayLocal()} data={d.data} /></Card>
+      )}
+      <p className="mt-3 text-xs text-muted">Áreas em cinza estão fora do expediente; listras indicam bloqueios. Clique em um dia para abrir a visão diária.</p>
     </>
   );
 }

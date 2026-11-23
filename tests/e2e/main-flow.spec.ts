@@ -1,6 +1,7 @@
 import { expect, test, type Browser } from "@playwright/test";
 import { Client } from "pg";
 import { createHmac, randomUUID } from "node:crypto";
+import { base32Decode, currentStep, hotp } from "../../src/modules/mfa/totp";
 
 const DB = process.env.E2E_DATABASE_URL ?? "postgres://retoma:retoma@localhost:5432/retoma_e2e";
 const shots = process.env.SCREENSHOT_DIR;
@@ -197,14 +198,60 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await expect(page.getByText(`Bruno Atendente · ${agentEmail}`, { exact: false })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/14-equipe.png`, fullPage: true });
 
+  // Agenda semanal
+  await page.goto("/app/agenda?visao=semana");
+  await expect(page.getByText(/Semana de/)).toBeVisible();
+  await page.getByLabel("Profissional").selectOption({ label: "Dra. Paula" });
+  await page.getByRole("button", { name: "Ver" }).click();
+  await page.goto(`/app/agenda?visao=semana&date=${tomorrow}&prof=${new URL(page.url()).searchParams.get("prof")}`);
+  await expect(page.getByRole("link", { name: /Helena Souza/ })).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/15-agenda-semana.png`, fullPage: true });
+
+  // Verificação em duas etapas: ativa lendo a chave mostrada na tela
+  await page.goto("/conta/seguranca");
+  await page.getByRole("button", { name: "Ativar verificação em duas etapas" }).click();
+  const secret = (await page.locator("code").first().textContent())!.trim();
+  await page.getByLabel("Código de 6 dígitos").fill(hotp(base32Decode(secret), currentStep()));
+  await page.getByRole("button", { name: "Confirmar e ativar" }).click();
+  await expect(page.getByText("Verificação em duas etapas ativada.")).toBeVisible();
+  const recovery = (await page.locator("ul li").allTextContents()).map((t) => t.trim());
+  expect(recovery).toHaveLength(10);
+  if (shots) await page.screenshot({ path: `${shots}/16-mfa.png`, fullPage: true });
+
+  // Painel da plataforma: só para administradores (com a verificação ativa)
+  await page.goto("/admin");
+  await expect(page.getByText(/404|não encontrad/i).first()).toBeVisible();
+  const db3 = new Client({ connectionString: DB });
+  await db3.connect();
+  await db3.query("insert into platform_admins (user_id) select id from users where email = $1", [email]);
+  await db3.end();
+  await page.goto("/admin");
+  await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
+  await page.getByRole("link", { name: "Empresas", exact: true }).click();
+  await page.getByRole("link", { name: "Clínica Sorriso E2E" }).click();
+  await expect(page.getByText("Somente contagens — sem acesso a conteúdo.")).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/17-admin.png`, fullPage: true });
+  await page.goto("/app");
+
   // Sair
   await page.getByRole("button", { name: "Sair" }).last().click();
   await expect(page).toHaveURL(/\/login/);
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login/);
 
+  // Login agora pede o código (uso um código de recuperação)
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill("senha-muito-forte");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
+  await page.getByLabel("Código").fill(recovery[0]);
+  await page.getByRole("button", { name: "Verificar" }).click();
+  await expect(page.getByRole("heading", { name: "Painel" })).toBeVisible();
+  await page.getByRole("button", { name: "Sair" }).last().click();
+
   // Esqueci minha senha: resposta neutra (não revela se o e-mail existe)
   await page.getByRole("link", { name: "Esqueci minha senha" }).click();
+  await expect(page.getByRole("heading", { name: "Esqueci minha senha" })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
   await page.getByRole("button", { name: "Enviar link" }).click();
   await expect(page.getByText(/Se houver uma conta com este e-mail/)).toBeVisible();

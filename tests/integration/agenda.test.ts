@@ -196,3 +196,20 @@ describe("Radar da agenda", () => {
     expect(after).toHaveLength(0);
   });
 });
+
+describe("visão semanal", () => {
+  it("agrupa por dia da semana e respeita o fuso", async () => {
+    const { weekView, mondayOf } = await import("@/modules/agenda/service");
+    expect(mondayOf("2026-11-29")).toBe("2026-11-23"); // domingo → segunda anterior
+    expect(mondayOf("2026-11-23")).toBe("2026-11-23");
+    const D = day(10);
+    const monday = mondayOf(D);
+    const w = await withTenant(A, (db) => weekView(db, A.orgId, monday, prof));
+    const idx = Math.round((new Date(`${D}T12:00:00Z`).getTime() - new Date(`${monday}T12:00:00Z`).getTime()) / 86400_000);
+    const inDay = w.appointments.filter((a) => a.day === idx);
+    expect(inDay.length).toBeGreaterThan(0);
+    expect(inDay.find((a) => a.start_min === 9 * 60)).toBeTruthy(); // agendamento das 09:00 (horário de Brasília)
+    expect(w.rules.length).toBe(14);
+    expect(w.blocks.some((b) => b.day === idx && b.reason === "Curso")).toBe(true);
+  });
+});

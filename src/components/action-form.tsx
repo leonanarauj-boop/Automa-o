@@ -20,7 +20,9 @@ export function ActionForm({ action, children, className, resetOnSuccess = false
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (state?.ok && resetOnSuccess) ref.current?.reset(); }, [state, resetOnSuccess]);
   return (
-    <form ref={ref} className={className} id={id} aria-busy={pending} onSubmit={(e) => {
+    // action = envio funcional mesmo antes do JavaScript carregar (POST da server action);
+    // depois de carregado, onSubmit assume e impede o reset automático do React.
+    <form ref={ref} action={formAction} className={className} id={id} aria-busy={pending} onSubmit={(e) => {
       e.preventDefault();
       if (pending) return;
       const fd = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter);

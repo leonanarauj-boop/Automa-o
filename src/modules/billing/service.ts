@@ -30,23 +30,25 @@ export function computeOrgStatus(i: {
 
 /** Recalcula status, plano efetivo e créditos de IA da organização. */
 export async function recompute(db: Db, orgId: string, now = new Date()) {
-  const o = (await db.query<{ trial_ends_at: Date; status: string; plan: string }>("select trial_ends_at, status, plan from organizations where id = $1 for update", [orgId])).rows[0];
+  const o = (await db.query<{ trial_ends_at: Date; status: string; plan: string; ai_credits_override: number | null; admin_blocked_reason: string | null }>(
+    "select trial_ends_at, status, plan, ai_credits_override, admin_blocked_reason from organizations where id = $1 for update", [orgId])).rows[0];
   const sub = (await db.query<{ status: string; current_period_end: Date | null; plan_key: string; pending_plan_key: string | null }>(
     "select status, current_period_end, plan_key, pending_plan_key from subscriptions where organization_id = $1", [orgId])).rows[0] ?? null;
   const inv = (await db.query<{ paid: boolean; overdue: Date | null }>(
     `select exists(select 1 from invoices where organization_id = $1 and status = 'paid') paid,
             (select min(due_date)::timestamptz from invoices where organization_id = $1 and status in ('overdue','chargeback')) overdue`, [orgId])).rows[0];
-  const status = computeOrgStatus({
+  const computed = computeOrgStatus({
     trialEndsAt: o.trial_ends_at, subscription: sub ? { status: sub.status, currentPeriodEnd: sub.current_period_end } : null,
     hasPaidInvoice: inv.paid, oldestOverdueDueDate: inv.overdue,
   }, now);
+  const status: OrgStatus = o.admin_blocked_reason ? "suspended" : computed; // bloqueio manual da plataforma prevalece
   if (sub && sub.status !== "canceled") {
     const subStatus = inv.overdue ? "past_due" : inv.paid ? "active" : "pending";
     if (subStatus !== sub.status) await db.query("update subscriptions set status = $2, updated_at = now() where organization_id = $1", [orgId, subStatus]);
   }
   const plan: PlanKey = (status === "active" || status === "past_due") && sub ? (sub.plan_key as PlanKey) : "trial";
   await db.query("update organizations set status = $2, plan = $3, ai_monthly_credits = $4, updated_at = now() where id = $1",
-    [orgId, status, plan, getPlan(plan).limits.aiCredits]);
+    [orgId, status, plan, o.ai_credits_override ?? getPlan(plan).limits.aiCredits]);
   if (status !== o.status) {
     await audit(db, { orgId, actorType: "system", action: `billing.status.${status}`, metadata: { from: o.status } });
   }

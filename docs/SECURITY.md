@@ -17,11 +17,13 @@
 | Dados de cartão | Nunca trafegam pela plataforma: pagamento na página de fatura do gateway | `billing/` |
 | Tomada de conta por redefinição de senha | Token aleatório guardado só como hash, 60 min, uso único; resposta igual para e-mail existente ou não; limite de 3 pedidos/h por e-mail e 10/h por IP; todas as sessões encerradas ao redefinir | `modules/auth/password.ts` |
 | Convites | Token com hash, 7 dias, uso único; e-mail do convite precisa ser o da conta que aceita; redirecionamento pós-login só para caminhos internos | `modules/team/service.ts` |
+| Senha vazada | Verificação em duas etapas (TOTP); segredo criptografado; códigos de recuperação com hash e uso único; desafio de 5 min e 5 tentativas; reuso do mesmo código bloqueado | `modules/mfa/` |
+| Acesso da equipe da plataforma | `/admin` só para `platform_admins` com 2 etapas verificadas na sessão; 404 para os demais; somente agregados; ações em `admin_audit` e no histórico da empresa | `modules/admin/`, `lib/admin-session.ts` |
 | Rastreabilidade | `audit_logs` (append-only para usuários) em ações sensíveis | `modules/audit` |
 
 ## Pendências conhecidas (antes do lançamento)
 - Rate limiting por IP nas rotas públicas e no webhook (hoje só por e-mail no login).
-- MFA para donos/gestores; lista e revogação de sessões pela interface.
+- Lista e revogação de sessões pela interface; acesso de suporte a dados com consentimento do cliente (break-glass).
 - Content-Security-Policy estrita.
 - Rotação da `ENCRYPTION_KEY` (formato `v1.` já prevê versionamento).
 - Papel dono do banco sem superusuário em produção; backups e PITR no provedor.
