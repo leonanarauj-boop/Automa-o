@@ -7,9 +7,11 @@ import { CopilotError } from "@/modules/ai/copilot";
 import { AILimitError } from "@/modules/ai/usage";
 import { KnowledgeError } from "@/modules/ai/knowledge";
 import { AgendaError } from "@/modules/agenda/service";
+import { CampaignError } from "@/modules/campaigns/service";
+import { AutomationError } from "@/modules/automations/service";
 import type { ActionResult } from "@/components/action-form";
 
-const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError, CopilotError, AILimitError, KnowledgeError, AgendaError];
+const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError, CopilotError, AILimitError, KnowledgeError, AgendaError, CampaignError, AutomationError];
 
 /** Converte erros esperados em mensagens para o usuário; erros inesperados são logados e genéricos. */
 export async function safeAction(fn: () => Promise<string | void>): Promise<ActionResult> {

@@ -1,6 +1,7 @@
 import type { Db } from "@/lib/db";
 import { parseWebhook, type InboundMessage, type StatusUpdate } from "@/modules/whatsapp/webhook";
 import { confirmFromReply } from "@/modules/agenda/reminders";
+import { emitEvent } from "@/modules/automations/events";
 import { isOptInMessage, isOptOutMessage, serviceWindowExpiry, shouldApplyStatus } from "@/modules/whatsapp/rules";
 
 /**
@@ -51,6 +52,7 @@ export async function handleInbound(db: Db, m: InboundMessage) {
       [orgId, contactId, `Primeira mensagem recebida (${m.providerMessageId})`],
     );
     await createLeadDeal(db, orgId, contactId);
+    await emitEvent(db, orgId, "contact.created", { contactId }, { source: "whatsapp" });
   }
 
   const conv = await db.query<{ id: string }>(
@@ -89,6 +91,7 @@ export async function handleInbound(db: Db, m: InboundMessage) {
   );
 
   await confirmFromReply(db, orgId, contactId, m.text);
+  await emitEvent(db, orgId, "message.received", { contactId }, { text: m.text?.slice(0, 500) ?? null, type: m.type });
 
   if (isOptOutMessage(m.text) || isOptInMessage(m.text)) {
     const status = isOptOutMessage(m.text) ? "revoked" : "granted";

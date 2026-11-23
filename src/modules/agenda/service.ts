@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { audit } from "@/modules/audit/audit";
+import { emitEvent } from "@/modules/automations/events";
 
 export class AgendaError extends Error {}
 
@@ -163,7 +164,7 @@ const TRANSITIONS: Record<Status, Status[]> = {
 };
 
 export async function setStatus(db: Db, orgId: string, userId: string, appointmentId: string, status: Status, reason?: string) {
-  const a = await db.query<{ status: Status; starts_at: Date }>("select status, starts_at from appointments where id = $1 for update", [appointmentId]);
+  const a = await db.query<{ status: Status; starts_at: Date; contact_id: string }>("select status, starts_at, contact_id from appointments where id = $1 for update", [appointmentId]);
   const cur = a.rows[0];
   if (!cur) throw new AgendaError("Agendamento não encontrado.");
   if (!TRANSITIONS[cur.status].includes(status)) throw new AgendaError("Mudança de status não permitida para este agendamento.");
@@ -176,6 +177,7 @@ export async function setStatus(db: Db, orgId: string, userId: string, appointme
      where id = $1`,
     [appointmentId, status, reason?.trim().slice(0, 300) || null]);
   await audit(db, { orgId, actorType: "user", actorId: userId, action: `appointment.${status}`, targetType: "appointment", targetId: appointmentId });
+  await emitEvent(db, orgId, "appointment.status_changed", { contactId: cur.contact_id, appointmentId }, { status });
 }
 
 /** Reagenda: cancela o original e cria um novo vinculado (histórico preservado), numa única transação. */

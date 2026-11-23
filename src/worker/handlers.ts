@@ -5,6 +5,19 @@ import { performSend } from "@/modules/inbox/outbound";
 import { refreshRadar } from "@/modules/radar/service";
 import { ProviderError } from "@/modules/whatsapp/provider";
 import { sendDueReminders } from "@/modules/agenda/reminders";
+import { processEvents, runDueWorkflows, scanNoReply } from "@/modules/automations/engine";
+import { dispatchDueCampaigns } from "@/modules/campaigns/service";
+
+/** Distribui eventos, verifica o gatilho "sem resposta" e avança execuções de automações. */
+export async function automationTick(opts: { scanNoReply?: boolean } = {}) {
+  await withService((db) => processEvents(db));
+  if (opts.scanNoReply) await withService((db) => scanNoReply(db));
+  await runDueWorkflows();
+}
+
+export async function campaignTick() {
+  return withService((db) => dispatchDueCampaigns(db));
+}
 
 async function handle(job: Job) {
   switch (job.type) {

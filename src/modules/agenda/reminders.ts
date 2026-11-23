@@ -3,6 +3,7 @@ import { enqueue } from "@/modules/jobs/queue";
 import { randomToken } from "@/lib/crypto";
 import { renderTemplate } from "@/modules/whatsapp/rules";
 import { audit } from "@/modules/audit/audit";
+import { emitEvent } from "@/modules/automations/events";
 
 /**
  * Variáveis do template de lembrete, por posição:
@@ -92,6 +93,9 @@ export async function confirmFromReply(db: Db, orgId: string, contactId: string,
      where id = (select id from appointments where organization_id = $1 and contact_id = $2 and status = 'scheduled'
                  and reminder_sent_at > now() - interval '48 hours' and starts_at > now() order by starts_at limit 1)
      returning id`, [orgId, contactId]);
-  if (r.rowCount) await audit(db, { orgId, actorType: "system", action: "appointment.confirmed_by_reply", targetType: "appointment", targetId: r.rows[0].id });
+  if (r.rowCount) {
+    await audit(db, { orgId, actorType: "system", action: "appointment.confirmed_by_reply", targetType: "appointment", targetId: r.rows[0].id });
+    await emitEvent(db, orgId, "appointment.status_changed", { contactId, appointmentId: r.rows[0].id }, { status: "confirmed" });
+  }
   return r.rows[0]?.id ?? null;
 }

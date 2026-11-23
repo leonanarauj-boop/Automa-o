@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { normalizePhone } from "@/modules/whatsapp/rules";
 import { audit } from "@/modules/audit/audit";
 import { markRecovered } from "@/modules/radar/service";
+import { emitEvent } from "@/modules/automations/events";
 
 export class CrmError extends Error {}
 
@@ -35,6 +36,7 @@ export async function createContact(db: Db, orgId: string, userId: string, input
       [orgId, d.displayName, phone, d.email, d.company, d.notes, d.temperature, userId],
     );
     await audit(db, { orgId, actorType: "user", actorId: userId, action: "contact.created", targetType: "contact", targetId: r.rows[0].id });
+    await emitEvent(db, orgId, "contact.created", { contactId: r.rows[0].id }, { source: "manual" });
     return r.rows[0].id;
   } catch (e) {
     if ((e as { code?: string }).code === "23505") throw new CrmError("Já existe um contato com este telefone.");
@@ -160,8 +162,8 @@ export async function createDeal(db: Db, orgId: string, userId: string, input: z
   return r.rows[0].id;
 }
 
-export async function moveDeal(db: Db, orgId: string, userId: string, dealId: string, stageId: string, lostReason?: string) {
-  const cur = await db.query<{ stage_id: string; pipeline_id: string }>("select stage_id, pipeline_id from deals where id = $1 for update", [dealId]);
+export async function moveDeal(db: Db, orgId: string, userId: string | null, dealId: string, stageId: string, lostReason?: string, ctx: { depth?: number } = {}) {
+  const cur = await db.query<{ stage_id: string; pipeline_id: string; contact_id: string }>("select stage_id, pipeline_id, contact_id from deals where id = $1 for update", [dealId]);
   if (!cur.rowCount) throw new CrmError("Negócio não encontrado.");
   const st = await db.query<{ kind: "open" | "won" | "lost" }>("select kind from pipeline_stages where id = $1 and pipeline_id = $2", [stageId, cur.rows[0].pipeline_id]);
   if (!st.rowCount) throw new CrmError("Etapa inválida.");
@@ -179,7 +181,8 @@ export async function moveDeal(db: Db, orgId: string, userId: string, dealId: st
   if (kind === "lost") {
     await db.query("update opportunity_signals set status = 'resolved', resolved_at = now() where deal_id = $1 and status = 'open'", [dealId]);
   }
-  await audit(db, { orgId, actorType: "user", actorId: userId, action: "deal.moved", targetType: "deal", targetId: dealId, metadata: { stageId, kind } });
+  await audit(db, { orgId, actorType: userId ? "user" : "system", actorId: userId, action: "deal.moved", targetType: "deal", targetId: dealId, metadata: { stageId, kind } });
+  await emitEvent(db, orgId, "deal.stage_changed", { contactId: cur.rows[0].contact_id, dealId }, { stageId, kind }, ctx.depth ?? 0);
 }
 
 export async function updateDealValue(db: Db, dealId: string, value: string) {
