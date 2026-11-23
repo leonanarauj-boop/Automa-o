@@ -1,5 +1,6 @@
 import { requireSession, tenant } from "@/lib/session";
-import { logoutAction } from "../auth-actions";
+import { logoutAction, switchOrgAction } from "../auth-actions";
+import { withService } from "@/lib/db";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
@@ -16,6 +17,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
     return r.rows[0];
   });
+  const orgs = await withService((db) => db.query<{ id: string; name: string }>(
+    "select o.id, o.name from memberships m join organizations o on o.id = m.organization_id where m.user_id = $1 and m.status = 'active' order by o.name", [s.userId])).then((r) => r.rows);
   return (
     <div className="min-h-dvh md:flex">
       <aside className="border-b border-border bg-surface md:sticky md:top-0 md:flex md:h-dvh md:w-60 md:shrink-0 md:flex-col md:border-r md:border-b-0">
@@ -27,7 +30,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Nav badges={{ "/app/inbox": Number(counts.awaiting), "/app/radar": Number(counts.signals) }} />
         </div>
         <div className="hidden border-t border-border px-5 py-4 md:block">
-          <p className="truncate text-sm font-medium">{s.orgName}</p>
+          {orgs.length > 1 ? (
+            <form action={switchOrgAction} className="flex gap-1">
+              <select name="orgId" defaultValue={s.orgId} aria-label="Empresa" className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-1 text-sm font-medium">
+                {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+              <button className="text-xs text-muted hover:text-text">Trocar</button>
+            </form>
+          ) : <p className="truncate text-sm font-medium">{s.orgName}</p>}
           <p className="truncate text-xs text-muted">{s.userName}</p>
           <form action={logoutAction} className="mt-3"><button className="text-sm text-muted hover:text-text">Sair</button></form>
         </div>

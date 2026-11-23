@@ -15,11 +15,13 @@
 | Clickjacking/MIME | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `next.config.ts` |
 | Webhook de pagamento forjado | Token do cabeçalho `asaas-access-token` comparado em tempo constante; eventos deduplicados pelo `id` | `api/webhooks/billing/route.ts` |
 | Dados de cartão | Nunca trafegam pela plataforma: pagamento na página de fatura do gateway | `billing/` |
+| Tomada de conta por redefinição de senha | Token aleatório guardado só como hash, 60 min, uso único; resposta igual para e-mail existente ou não; limite de 3 pedidos/h por e-mail e 10/h por IP; todas as sessões encerradas ao redefinir | `modules/auth/password.ts` |
+| Convites | Token com hash, 7 dias, uso único; e-mail do convite precisa ser o da conta que aceita; redirecionamento pós-login só para caminhos internos | `modules/team/service.ts` |
 | Rastreabilidade | `audit_logs` (append-only para usuários) em ações sensíveis | `modules/audit` |
 
 ## Pendências conhecidas (antes do lançamento)
 - Rate limiting por IP nas rotas públicas e no webhook (hoje só por e-mail no login).
-- MFA para donos/gestores; recuperação de senha; revogação de sessões pela interface.
+- MFA para donos/gestores; lista e revogação de sessões pela interface.
 - Content-Security-Policy estrita.
 - Rotação da `ENCRYPTION_KEY` (formato `v1.` já prevê versionamento).
 - Papel dono do banco sem superusuário em produção; backups e PITR no provedor.

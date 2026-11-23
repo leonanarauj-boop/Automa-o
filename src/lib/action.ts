@@ -10,9 +10,10 @@ import { AgendaError } from "@/modules/agenda/service";
 import { CampaignError } from "@/modules/campaigns/service";
 import { AutomationError } from "@/modules/automations/service";
 import { BillingError } from "@/modules/billing/service";
+import { TeamError } from "@/modules/team/service";
 import type { ActionResult } from "@/components/action-form";
 
-const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError, CopilotError, AILimitError, KnowledgeError, AgendaError, CampaignError, AutomationError, BillingError];
+const KNOWN = [AuthError, CrmError, SendBlockedError, ChannelError, CopilotError, AILimitError, KnowledgeError, AgendaError, CampaignError, AutomationError, BillingError, TeamError];
 
 /** Converte erros esperados em mensagens para o usuário; erros inesperados são logados e genéricos. */
 export async function safeAction(fn: () => Promise<string | void>): Promise<ActionResult> {

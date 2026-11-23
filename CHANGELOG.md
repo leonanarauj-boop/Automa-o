@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — 2026-11-23
+### Adicionado
+- Convites de equipe por e-mail (link de uso único, 7 dias), aceite com conta nova ou existente, revogação, limite de usuários do plano.
+- Gestão de membros: troca de papel (dono), desativação imediata (sessões deixam de valer), seletor de empresa.
+- Esqueci minha senha (resposta neutra, limite por e-mail e IP, link de 60 min e uso único, encerra todas as sessões) e alteração de senha.
+- Envio de e-mails por SMTP (qualquer provedor), com registro de envios sem guardar o conteúdo.
+
 ## 0.5.0 — 2026-11-23
 ### Adicionado
 - Cobrança: planos e limites, teste grátis, assinatura via Asaas (cliente, assinatura, faturas), webhook autenticado e idempotente, cupons, upgrade imediato e downgrade agendado, inadimplência com carência de 7 dias, acesso restrito, cancelamento.

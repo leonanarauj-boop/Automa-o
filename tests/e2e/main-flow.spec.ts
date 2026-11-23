@@ -1,11 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Browser } from "@playwright/test";
 import { Client } from "pg";
 import { createHmac, randomUUID } from "node:crypto";
 
 const DB = process.env.E2E_DATABASE_URL ?? "postgres://retoma:retoma@localhost:5432/retoma_e2e";
 const shots = process.env.SCREENSHOT_DIR;
 
-test("cadastro → demonstração → contato → negócio → WhatsApp → Radar", async ({ page, request }) => {
+test("cadastro → demonstração → contato → negócio → WhatsApp → Radar", async ({ page, request, browser }) => {
   const email = `e2e-${randomUUID().slice(0, 8)}@teste.com`;
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Nenhuma venda esquecida/ })).toBeVisible();
@@ -171,9 +171,42 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await expect(page.getByRole("heading", { name: "Profissional" })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/12-assinatura.png`, fullPage: true });
 
+  // Equipe: convite → link → nova conta como atendente (sem SMTP neste ambiente, o link aparece na tela)
+  await page.goto("/app/settings#equipe");
+  await page.getByLabel("E-mail do convidado").fill("atendente@teste.com");
+  await page.getByRole("button", { name: "Convidar" }).click();
+  const msg = await page.getByText(/Link do convite/).textContent();
+  const link = msg!.match(/https?:\/\/\S+\/convite\/[A-Za-z0-9_-]+/)![0];
+  await expect(page.getByText("convite pendente")).toBeVisible();
+  const other = await (browser as Browser).newContext({ baseURL: "http://localhost:3100" });
+  const p2 = await other.newPage();
+  await p2.goto(new URL(link).pathname);
+  await expect(p2.getByText(/convidou/)).toBeVisible();
+  await p2.getByLabel("Seu nome").fill("Bruno Atendente");
+  await p2.getByLabel("Crie uma senha").fill("senha-do-bruno-1");
+  await p2.getByLabel("Confirme a senha").fill("senha-do-bruno-1");
+  await p2.getByRole("button", { name: "Criar conta e entrar" }).click();
+  await expect(p2.getByRole("heading", { name: "Painel" })).toBeVisible();
+  await p2.goto("/app/settings");
+  await expect(p2.getByRole("button", { name: "Convidar" })).toHaveCount(0); // atendente não convida
+  await p2.goto(new URL(link).pathname);
+  await expect(p2.getByText("Convite inválido ou expirado")).toBeVisible(); // uso único
+  await other.close();
+  await page.reload();
+  await expect(page.getByText(/Bruno Atendente · atendente@teste.com/)).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/14-equipe.png`, fullPage: true });
+
   // Sair
   await page.getByRole("button", { name: "Sair" }).last().click();
   await expect(page).toHaveURL(/\/login/);
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login/);
+
+  // Esqueci minha senha: resposta neutra (não revela se o e-mail existe)
+  await page.getByRole("link", { name: "Esqueci minha senha" }).click();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByRole("button", { name: "Enviar link" }).click();
+  await expect(page.getByText(/Se houver uma conta com este e-mail/)).toBeVisible();
+  await page.goto("/redefinir-senha/token-invalido");
+  await expect(page.getByText("Link inválido ou expirado")).toBeVisible();
 });

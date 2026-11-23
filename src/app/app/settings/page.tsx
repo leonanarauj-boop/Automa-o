@@ -6,6 +6,8 @@ import { Badge, Card, CardHeader, Field, Input, Notice, PageHeader, buttonClass 
 import { connectChannelAction, disconnectChannelAction, syncTemplatesAction, updateRulesAction } from "../actions";
 import { RULE_LABELS, type RuleKind } from "@/modules/radar/rules";
 import { getSegment } from "@/modules/onboarding/segments";
+import { getPlan } from "@/modules/billing/plans";
+import { changePasswordAction, changeRoleAction, inviteAction, memberStatusAction, revokeInviteAction } from "./team-actions";
 
 export const metadata = { title: "Configurações" };
 
@@ -25,8 +27,11 @@ export default async function Settings() {
     templates: (await db.query<{ id: string; name: string; language: string; category: string; status: string; synced_at: Date }>(
       "select id, name, language, category, status, synced_at from message_templates order by name")).rows,
     rules: (await db.query<{ kind: RuleKind; threshold_hours: number; active: boolean }>("select kind, threshold_hours, active from opportunity_rules order by kind")).rows,
-    team: (await db.query<{ full_name: string; email: string; role: string }>(
-      "select u.full_name, u.email, m.role from memberships m join users u on u.id = m.user_id where m.status = 'active' order by m.created_at")).rows,
+    team: (await db.query<{ user_id: string; full_name: string; email: string; role: string; status: string }>(
+      "select u.id as user_id, u.full_name, u.email, m.role, m.status from memberships m join users u on u.id = m.user_id order by m.status, m.created_at")).rows,
+    invites: (await db.query<{ id: string; email: string; role: string; expires_at: Date }>(
+      "select id, email, role, expires_at from invitations where accepted_at is null and revoked_at is null and expires_at > now() order by created_at desc")).rows,
+    plan: (await db.query<{ plan: string }>("select plan from organizations limit 1")).rows[0].plan,
     logs: (await db.query<{ action: string; created_at: Date; actor: string | null }>(
       "select a.action, a.created_at, u.full_name as actor from audit_logs a left join users u on u.id = a.actor_id order by a.created_at desc limit 15")).rows,
   }));
@@ -103,12 +108,50 @@ export default async function Settings() {
           </ActionForm>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader title="Equipe" description="Convites de novos membros chegam na próxima entrega." />
+                <div className="grid gap-6 lg:grid-cols-2">
+          <Card id="equipe">
+            <CardHeader title="Equipe" description={`${d.team.filter((m) => m.status === "active").length + d.invites.length} de ${getPlan(d.plan).limits.users} usuários do plano (incluindo convites pendentes).`} />
             <ul className="divide-y divide-border text-sm">
-              {d.team.map((m) => <li key={m.email} className="flex justify-between gap-2 px-5 py-3"><span>{m.full_name} <span className="text-muted">· {m.email}</span></span><Badge>{ROLE[m.role]}</Badge></li>)}
+              {d.team.map((m) => (
+                <li key={m.user_id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                  <span className={m.status === "disabled" ? "text-muted line-through" : ""}>{m.full_name} <span className="text-muted">· {m.email}</span></span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {d.s.role === "owner" && m.role !== "owner" && m.status === "active" ? (
+                      <ActionForm action={changeRoleAction} className="flex items-center gap-1">
+                        <input type="hidden" name="userId" value={m.user_id} />
+                        <select name="role" defaultValue={m.role} aria-label={`Papel de ${m.full_name}`} className="h-8 rounded-md border border-border bg-surface px-2 text-xs">
+                          <option value="manager">Gestor</option><option value="agent">Atendente</option>
+                        </select>
+                        <SubmitButton size="sm" variant="ghost" pendingText="…">Salvar</SubmitButton>
+                      </ActionForm>
+                    ) : <Badge>{ROLE[m.role]}</Badge>}
+                    {manager && m.role !== "owner" && m.user_id !== d.s.userId && (m.role === "agent" || d.s.role === "owner") && (
+                      <ActionForm action={memberStatusAction}>
+                        <input type="hidden" name="userId" value={m.user_id} /><input type="hidden" name="status" value={m.status === "active" ? "disabled" : "active"} />
+                        <SubmitButton size="sm" variant={m.status === "active" ? "danger" : "secondary"} pendingText="…">{m.status === "active" ? "Desativar" : "Reativar"}</SubmitButton>
+                      </ActionForm>
+                    )}
+                  </span>
+                </li>
+              ))}
+              {d.invites.map((i) => (
+                <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                  <span>{i.email} <span className="text-muted">· convite pendente até {dateTime(i.expires_at)}</span></span>
+                  <span className="flex items-center gap-2"><Badge tone="money">{ROLE[i.role]}</Badge>
+                    {manager && <form action={revokeInviteAction}><input type="hidden" name="id" value={i.id} /><button className="text-xs text-danger hover:underline">Revogar</button></form>}</span>
+                </li>
+              ))}
             </ul>
+            {manager && (
+              <ActionForm action={inviteAction} resetOnSuccess className="grid gap-2 border-t border-border p-5 sm:grid-cols-[1fr_9rem_auto]">
+                <Input name="email" type="email" required placeholder="email@empresa.com.br" aria-label="E-mail do convidado" />
+                <select name="role" defaultValue="agent" aria-label="Papel" className="h-10 rounded-lg border border-border bg-surface px-3 text-sm">
+                  <option value="agent">Atendente</option>{d.s.role === "owner" && <option value="manager">Gestor</option>}
+                </select>
+                <SubmitButton pendingText="Convidando…">Convidar</SubmitButton>
+              </ActionForm>
+            )}
+            <p className="border-t border-border px-5 py-3 text-xs text-muted">Atendentes atendem e usam o CRM; gestores também configuram a conta, aprovam campanhas e gerenciam automações; apenas o dono altera papéis e a assinatura.</p>
           </Card>
           <Card>
             <CardHeader title="Registro de auditoria" description="Ações sensíveis realizadas na conta." />
@@ -117,6 +160,16 @@ export default async function Settings() {
             </ul>
           </Card>
         </div>
+
+        <Card id="conta">
+          <CardHeader title="Minha conta" description={`${d.s.userName} · ${d.s.userEmail}`} />
+          <ActionForm action={changePasswordAction} resetOnSuccess className="grid gap-3 p-5 sm:grid-cols-3 sm:items-end">
+            <Field label="Senha atual" htmlFor="pcur"><Input id="pcur" name="current" type="password" autoComplete="current-password" required /></Field>
+            <Field label="Nova senha" htmlFor="pnew"><Input id="pnew" name="next" type="password" autoComplete="new-password" minLength={10} required /></Field>
+            <Field label="Confirme a nova senha" htmlFor="pconf"><Input id="pconf" name="confirm" type="password" autoComplete="new-password" minLength={10} required /></Field>
+            <div className="sm:col-span-3"><SubmitButton variant="secondary">Alterar senha</SubmitButton></div>
+          </ActionForm>
+        </Card>
       </div>
     </>
   );

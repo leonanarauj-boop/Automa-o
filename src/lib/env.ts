@@ -12,6 +12,8 @@ const schema = z.object({
   ASAAS_API_KEY: z.string().optional().default(""),
   ASAAS_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   ASAAS_WEBHOOK_TOKEN: z.string().optional().default(""),
+  SMTP_URL: z.string().optional().default(""),
+  EMAIL_FROM: z.string().default("Retoma <nao-responda@localhost>"),
 });
 
 export type Env = z.infer<typeof schema>;

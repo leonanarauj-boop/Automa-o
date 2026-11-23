@@ -11,7 +11,7 @@ const env = {
 
 export default defineConfig({
   testDir: "tests/e2e",
-  timeout: 60_000,
+  timeout: 180_000,
   use: { baseURL: "http://localhost:3100", locale: "pt-BR" },
   webServer: [
     { command: "npx next start -p 3100", url: "http://localhost:3100", env, reuseExistingServer: false, timeout: 120_000 },

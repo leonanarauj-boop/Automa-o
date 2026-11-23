@@ -8,8 +8,10 @@ import { Logo } from "@/components/logo";
 
 export const metadata = { title: "Entrar" };
 
-export default async function LoginPage() {
-  if (await getSession()) redirect("/app");
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; email?: string }> }) {
+  const sp = await searchParams;
+  const next = sp.next && sp.next.startsWith("/") && !sp.next.startsWith("//") ? sp.next : "/app";
+  if (await getSession()) redirect(next);
   return (
     <main className="flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
@@ -18,9 +20,11 @@ export default async function LoginPage() {
           <h1 className="text-lg font-semibold">Entrar</h1>
           <p className="mt-1 text-sm text-muted">Acesse sua conta para continuar.</p>
           <ActionForm action={loginAction} className="mt-6 space-y-4">
-            <Field label="E-mail" htmlFor="email"><Input id="email" name="email" type="email" autoComplete="email" required /></Field>
+            <input type="hidden" name="next" value={next} />
+            <Field label="E-mail" htmlFor="email"><Input id="email" name="email" type="email" autoComplete="email" required defaultValue={sp.email} /></Field>
             <Field label="Senha" htmlFor="password"><Input id="password" name="password" type="password" autoComplete="current-password" required /></Field>
             <SubmitButton className="w-full" pendingText="Entrando…">Entrar</SubmitButton>
+            <p className="text-center text-sm"><Link href="/esqueci-senha" className="text-primary hover:underline">Esqueci minha senha</Link></p>
           </ActionForm>
         </div>
         <p className="mt-6 text-center text-sm text-muted">Ainda não tem conta? <Link href="/signup" className="font-medium text-primary hover:underline">Teste grátis por 14 dias</Link></p>

@@ -8,7 +8,8 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 
 | Área | Funcionalidades |
 |---|---|
-| Contas e segurança | Cadastro, login (bloqueio após 5 falhas em 15 min), sessões seguras (cookie httpOnly, token com hash), papéis dono/gestor/atendente, auditoria |
+| Contas e segurança | Cadastro, login (bloqueio após 5 falhas em 15 min), sessões seguras (cookie httpOnly, token com hash), papéis dono/gestor/atendente, auditoria, **esqueci minha senha** (link de uso único, 60 min) e alteração de senha |
+| **Equipe** | Convites por e-mail com link de uso único (7 dias), limite de usuários do plano, troca de papel, desativação imediata, várias empresas por usuário com seletor |
 | Multi-tenant | Isolamento por **Row Level Security** do Postgres em todas as tabelas de clientes, comprovado por testes automatizados |
 | Onboarding | Funil, etiquetas e regras do Radar pré-configurados por segmento (clínica, serviços, imobiliária, educação, varejo, outro) |
 | WhatsApp (API oficial) | Conexão de número da Cloud API (token criptografado AES-256-GCM, validado com a Meta), webhook com verificação de assinatura, processamento idempotente, envio de texto e templates, status de entrega/leitura, janela de 24h, descadastro por palavra-chave (SAIR/PARAR), sincronização de templates |
@@ -26,7 +27,7 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 | Infra | Fila de jobs em Postgres com retentativas e backoff, worker separado, logs estruturados |
 
 ## O que ainda NÃO existe (próximas entregas)
-IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de espera e Google Calendar, convite de membros da equipe, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
+IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de espera e Google Calendar, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
 
 ## Como rodar localmente
 
@@ -61,7 +62,7 @@ npm run ai:smoke           # 2 chamadas reais à API da Claude (requer ANTHROPIC
 ## Antes do lançamento (bloqueadores)
 - Revisão jurídica: Termos de Uso, Política de Privacidade, DPA (ver [LGPD.md](docs/LGPD.md)).
 - Aprovação do app na Meta (verificação da empresa, permissões, Tech Provider).
-- Validar a cobrança no sandbox do Asaas; recuperação de senha por e-mail; MFA para donos.
+- Validar a cobrança no sandbox do Asaas; configurar SMTP (convites e senha); MFA para donos.
 - Backups e monitoramento configurados no provedor; pentest externo.
 
 ## Documentação
