@@ -110,6 +110,45 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   }
   if (shots) await page.screenshot({ path: `${shots}/09-agenda.png`, fullPage: true });
 
+  // Automação a partir de modelo: ativa e executa para um novo contato (processada pelo worker)
+  await page.goto("/app/automations");
+  await page.locator("li", { hasText: "Novo lead" }).getByRole("button", { name: "Usar modelo" }).click();
+  await expect(page.getByRole("heading", { name: "Novo lead" })).toBeVisible();
+  await page.getByRole("button", { name: "Ativar" }).click();
+  await expect(page.getByText("Automação ativada.")).toBeVisible();
+  const autoUrl = page.url();
+  await page.goto("/app/contacts/new");
+  await page.getByLabel("Nome").fill("Lead da Automação");
+  await page.getByRole("button", { name: "Salvar contato" }).click();
+  await expect(page.getByRole("heading", { name: "Lead da Automação" })).toBeVisible();
+  await expect.poll(async () => { await page.goto(autoUrl); return page.getByText("Concluída").count(); }, { timeout: 30_000 }).toBeGreaterThan(0);
+  await expect(page.getByText("Tarefa criada.")).toHaveCount(1); // só o contato criado depois da ativação
+  if (shots) await page.screenshot({ path: `${shots}/10-automacao.png`, fullPage: true });
+
+  // Campanha: consentimento registrado + template aprovado → pré-visualização → aprovação
+  const db2 = new Client({ connectionString: DB });
+  await db2.connect();
+  const ch = (await db2.query("select id from channel_accounts where organization_id = $1", [org])).rows[0].id;
+  await db2.query(`insert into message_templates (organization_id, channel_account_id, name, language, category, status, body_text, body_param_count)
+    values ($1,$2,'novidades','pt_BR','MARKETING','APPROVED','Oi {{1}}! Temos horários especiais esta semana.',1)`, [org, ch]);
+  await db2.end();
+  await page.goto("/app/contacts");
+  await page.getByRole("link", { name: "Lucas Prado" }).click();
+  await page.getByPlaceholder(/Como foi obtido/).fill("Pediu para receber novidades pelo WhatsApp");
+  await page.getByRole("button", { name: "Registrar" }).click();
+  await expect(page.getByText("Autorizado")).toBeVisible();
+  await page.goto("/app/campaigns");
+  await page.getByLabel("Nome da campanha").fill("Horários especiais");
+  await page.getByRole("button", { name: "Criar rascunho" }).click();
+  await page.getByLabel("Template aprovado").selectOption({ label: "novidades (pt_BR · marketing)" });
+  await page.getByRole("button", { name: "Salvar e atualizar pré-visualização" }).click();
+  await expect(page.getByText(/podem receber/)).toBeVisible();
+  await expect(page.getByText("Oi Lucas! Temos horários especiais esta semana.")).toBeVisible();
+  await expect(page.getByText(/excluído\(s\): sem consentimento de marketing registrado/)).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/11-campanha.png`, fullPage: true });
+  await page.getByRole("button", { name: "Aprovar e agendar envio" }).click();
+  await expect(page.getByText("Agendada", { exact: true })).toBeVisible();
+
   // Assistente IA: cadastra catálogo e base; sem chave configurada, a interface avisa e não oferece botões de IA
   await page.goto("/app/knowledge");
   await expect(page.getByText("A IA ainda não está ativa")).toBeVisible();

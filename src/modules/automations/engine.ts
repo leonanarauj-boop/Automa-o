@@ -38,14 +38,14 @@ async function createRun(db: Db, orgId: string, a: { id: string; version_id: str
 }
 
 export async function processEvents(db: Db, limit = 200) {
-  const evs = await db.query<{ id: string; organization_id: string; type: string; contact_id: string | null; deal_id: string | null; appointment_id: string | null; payload: Record<string, unknown>; depth: number }>(
+  const evs = await db.query<{ id: string; organization_id: string; type: string; contact_id: string | null; deal_id: string | null; appointment_id: string | null; payload: Record<string, unknown>; depth: number; created_at: Date }>(
     "select * from domain_events where processed_at is null order by id limit $1 for update skip locked", [limit]);
   let created = 0;
   for (const ev of evs.rows) {
     if (ev.depth < MAX_DEPTH && ev.contact_id) {
       const autos = await db.query<{ id: string; version_id: string; definition: Definition }>(
         `select a.id, v.id as version_id, v.definition from automations a join automation_versions v on v.id = a.current_version_id
-         where a.organization_id = $1 and a.status = 'active' and a.trigger_type = $2`, [ev.organization_id, ev.type]);
+         where a.organization_id = $1 and a.status = 'active' and a.trigger_type = $2 and a.activated_at <= $3`, [ev.organization_id, ev.type, ev.created_at]);
       for (const a of autos.rows) {
         if (!matches(a.definition.trigger, ev)) continue;
         if (await createRun(db, ev.organization_id, a, `event:${ev.id}`, { contactId: ev.contact_id, dealId: ev.deal_id, appointmentId: ev.appointment_id }, ev.depth)) created++;
@@ -58,8 +58,8 @@ export async function processEvents(db: Db, limit = 200) {
 
 /** Gatilho por tempo: cliente sem responder há N horas depois da última mensagem da equipe. Uma execução por "silêncio". */
 export async function scanNoReply(db: Db) {
-  const autos = await db.query<{ id: string; organization_id: string; version_id: string; definition: Definition }>(
-    `select a.id, a.organization_id, v.id as version_id, v.definition from automations a join automation_versions v on v.id = a.current_version_id
+  const autos = await db.query<{ id: string; organization_id: string; version_id: string; definition: Definition; activated_at: Date }>(
+    `select a.id, a.organization_id, v.id as version_id, v.definition, a.activated_at from automations a join automation_versions v on v.id = a.current_version_id
      where a.status = 'active' and a.trigger_type = 'conversation.no_reply'`);
   let created = 0;
   for (const a of autos.rows) {
@@ -70,7 +70,8 @@ export async function scanNoReply(db: Db) {
        where c.organization_id = $1 and c.deleted_at is null and not c.is_demo
          and c.last_outbound_at is not null and (c.last_inbound_at is null or c.last_inbound_at < c.last_outbound_at)
          and c.last_outbound_at < now() - make_interval(hours => $2) and c.last_outbound_at > now() - make_interval(hours => $2 + 168)
-       limit 500`, [a.organization_id, t.hours]);
+         and c.last_outbound_at + make_interval(hours => $2) >= $3
+       limit 500`, [a.organization_id, t.hours, a.activated_at]);
     for (const r of rows.rows) {
       if (await createRun(db, a.organization_id, a, `noreply:${r.id}:${r.ts}`, { contactId: r.id }, 0)) created++;
     }

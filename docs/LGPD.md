@@ -21,6 +21,8 @@ Nome, telefone/WhatsApp, e-mail, empresa, mensagens trocadas, notas internas, ne
 - Copiloto de IA: trechos da conversa, dados do contato e a base de conhecimento da empresa são enviados ao provedor de IA (Anthropic) **somente quando um usuário aciona** a sugestão ou a análise. O registro interno (`ai_calls`) guarda apenas metadados. A organização pode desativar a IA.
 - Auditoria de ações sensíveis.
 
+- Campanhas exigem consentimento de marketing registrado (com evidência) e respeitam descadastramento e frequência máxima; automações respeitam descadastramento e exigem consentimento para templates de marketing.
+
 ## Pendências
 - Listar a Anthropic como suboperadora na Política de Privacidade e no DPA; avaliar transferência internacional de dados (art. 33) e as configurações de retenção do provedor.
 - Exportação e exclusão de dados do titular a pedido (tabela `data_requests` prevista no modelo-alvo).

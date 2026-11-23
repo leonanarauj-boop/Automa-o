@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 — 2026-11-23
+### Adicionado
+- Campanhas: segmentação, pré-visualização, consentimento obrigatório, frequência, limite diário, aprovação, teste, agendamento, envio escalonado, cancelamento e resultados.
+- Automações: gatilhos de contato, mensagem, etapa, agendamento e “sem resposta”; 11 tipos de passo; modelos prontos; versões; simulação; histórico; reprocessamento.
+- Outbox de eventos de domínio, proteção contra laços e limite diário de execuções.
+- Envio de templates centralizado com as regras de consentimento e limite diário.
+### Corrigido
+- Formulários não são mais limpos automaticamente após salvar (campos controlados ficavam diferentes do valor salvo).
+- Variáveis de template com valor padrão agora são gravadas sem precisar editá-las.
+
 ## 0.3.0 — 2026-11-23
 ### Adicionado
 - Agenda: profissionais, horário semanal, bloqueios, visão do dia, horários livres, encaixe, confirmação, remarcação, cancelamento e faltas.

@@ -220,6 +220,8 @@ describe("automações", () => {
     const id = await withTenant(A, (db) => createAutomation(db, A.orgId, A.userId, "Sem resposta", { trigger: { type: "conversation.no_reply", hours: 24 }, steps: [{ type: "create_task", title: "Sem resposta", dueHours: 1 }] }));
     await withTenant(A, (db) => setAutomationStatus(db, A.orgId, A.userId, id, "active"));
     await q("update contacts set last_inbound_at = now() - interval '3 days', last_outbound_at = now() - interval '2 days' where id = $1", [consented[0]]);
+    expect(await withService((db) => scanNoReply(db))).toBe(0); // silêncio completou antes da ativação: ignorado
+    await q("update automations set activated_at = now() - interval '5 days' where id = $1", [id]); // já estava ativa
     expect(await withService((db) => scanNoReply(db))).toBe(1);
     expect(await withService((db) => scanNoReply(db))).toBe(0);
     await withTenant(A, (db) => setAutomationStatus(db, A.orgId, A.userId, id, "paused"));

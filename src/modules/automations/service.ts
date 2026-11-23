@@ -59,7 +59,9 @@ export async function saveVersion(db: Db, orgId: string, userId: string, automat
 }
 
 export async function setAutomationStatus(db: Db, orgId: string, userId: string, id: string, status: "active" | "paused") {
-  const r = await db.query("update automations set status = $2, updated_at = now() where id = $1", [id, status]);
+  const r = await db.query(
+    "update automations set status = $2, updated_at = now(), activated_at = case when $2 = 'active' and status <> 'active' then now() else activated_at end where id = $1",
+    [id, status]);
   if (!r.rowCount) throw new AutomationError("Automação não encontrada.");
   if (status === "paused") {
     // execuções em espera também pausam: são canceladas para não agir depois da pausa

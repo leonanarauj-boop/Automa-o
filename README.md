@@ -19,11 +19,13 @@ Plataforma SaaS que transforma conversas do WhatsApp em oportunidades organizada
 | Painel | Novos contatos, vendas, valor em negociação, tempo médio de 1ª resposta, funil por etapa, taxa de ganho |
 | **Copiloto de IA** | Sugestão de resposta (o atendente revisa e envia), análise da conversa com aplicação seletiva no CRM (memória comercial, temperatura, etapa, tarefa, objeções), catálogo e base de conhecimento por empresa, bloqueio automático de preços/condições inventados, limite mensal de uso e custo por chamada. Ver [AI_SYSTEM.md](docs/AI_SYSTEM.md) |
 | **Agenda** | Profissionais e horários, bloqueios, horários livres calculados, agendamento sem choque de horário garantido pelo banco, confirmação, remarcação, cancelamento, faltas, lembrete automático pelo WhatsApp com confirmação por resposta, alertas no Radar. Ver [AGENDA.md](docs/AGENDA.md) |
+| **Campanhas** | Segmentação, pré-visualização com motivos de exclusão, consentimento obrigatório, controle de frequência, limite diário da Meta, aprovação por gestor, agendamento, envio de teste, envio escalonado e resultados (entregues, lidas, respostas). Ver [AUTOMATIONS.md](docs/AUTOMATIONS.md) |
+| **Automações** | 5 gatilhos e 11 tipos de passo, modelos prontos, versões, simulação, histórico por passo, reprocessamento, proteção contra laços e duplicidade, webhooks seguros |
 | Demonstração | Dados de exemplo marcados como **DEMO**, removíveis com um clique |
 | Infra | Fila de jobs em Postgres com retentativas e backoff, worker separado, logs estruturados |
 
 ## O que ainda NÃO existe (próximas entregas)
-IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, construtor de automações, lista de espera e Google Calendar, campanhas, cobrança/assinaturas, convite de membros da equipe, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
+IA respondendo sozinha (modos assistido/autônomo), copiloto do gestor, lista de espera e Google Calendar, cobrança/assinaturas, convite de membros da equipe, Embedded Signup da Meta, recebimento de mídia (arquivos), exportação de dados (LGPD), painel administrativo da plataforma, site com SEO completo. Ordem e critérios em [docs/planejamento](docs/planejamento/01-PLANO-ESTRATEGICO.md).
 
 ## Como rodar localmente
 
@@ -64,4 +66,4 @@ npm run ai:smoke           # 2 chamadas reais à API da Claude (requer ANTHROPIC
 ## Documentação
 - [Plano estratégico](docs/planejamento/01-PLANO-ESTRATEGICO.md) · [Modelo de dados (alvo)](docs/planejamento/02-MODELO-DE-DADOS.md) · [Arquitetura (alvo)](docs/planejamento/03-ARQUITETURA.md)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — como o código está organizado hoje e decisões tomadas
-- [AGENDA.md](docs/AGENDA.md) · [AI_SYSTEM.md](docs/AI_SYSTEM.md) · [SECURITY.md](docs/SECURITY.md) · [LGPD.md](docs/LGPD.md) · [INTEGRATIONS.md](docs/INTEGRATIONS.md) · [CHANGELOG.md](CHANGELOG.md)
+- [AGENDA.md](docs/AGENDA.md) · [AUTOMATIONS.md](docs/AUTOMATIONS.md) · [AI_SYSTEM.md](docs/AI_SYSTEM.md) · [SECURITY.md](docs/SECURITY.md) · [LGPD.md](docs/LGPD.md) · [INTEGRATIONS.md](docs/INTEGRATIONS.md) · [CHANGELOG.md](CHANGELOG.md)
