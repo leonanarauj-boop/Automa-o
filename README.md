@@ -66,6 +66,9 @@ npm run ai:smoke           # 2 chamadas reais à API da Claude (requer ANTHROPIC
 - Validar a cobrança no sandbox do Asaas; configurar SMTP (convites e senha).
 - Backups e monitoramento configurados no provedor; pentest externo.
 
+## Publicação
+Passo a passo de staging e produção (banco, app, worker, Meta, IA, pagamentos, e-mail, monitoramento) em **[docs/DEPLOY.md](docs/DEPLOY.md)**. Antes de publicar: `npm run check:env` (ou `-- --production`).
+
 ## Documentação
 - [Plano estratégico](docs/planejamento/01-PLANO-ESTRATEGICO.md) · [Modelo de dados (alvo)](docs/planejamento/02-MODELO-DE-DADOS.md) · [Arquitetura (alvo)](docs/planejamento/03-ARQUITETURA.md)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — como o código está organizado hoje e decisões tomadas

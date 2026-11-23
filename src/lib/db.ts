@@ -8,7 +8,9 @@ declare global {
 
 export function pool(): Pool {
   if (!globalThis.__retomaPool) {
-    globalThis.__retomaPool = new Pool({ connectionString: env().DATABASE_URL, max: 10 });
+    // Em ambientes serverless (Vercel), use a URL do pooler e um DB_POOL_MAX baixo (ex.: 3).
+    // SET LOCAL e set_config(..., true) valem só na transação: compatível com pooler em modo transação.
+    globalThis.__retomaPool = new Pool({ connectionString: env().DATABASE_URL, max: env().DB_POOL_MAX, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   }
   return globalThis.__retomaPool;
 }

@@ -1,0 +1,14 @@
+# Worker de processamento (webhooks, envios, automações, campanhas, lembretes, cobrança).
+# Processo de longa duração, sem porta HTTP. Uma instância basta; mais instâncias são seguras (fila com SKIP LOCKED).
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package.json package-lock.json ./
+# tsx (devDependency) executa o TypeScript diretamente
+RUN npm ci --include=dev --no-audit --no-fund
+COPY tsconfig.json ./
+COPY src ./src
+COPY db ./db
+COPY scripts ./scripts
+USER node
+CMD ["npx", "tsx", "src/worker/index.ts"]

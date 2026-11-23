@@ -15,7 +15,9 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test --trace off",
     "ai:smoke": "tsx scripts/ai-smoke.ts",
-    "admin:grant": "tsx scripts/grant-admin.ts"
+    "admin:grant": "tsx scripts/grant-admin.ts",
+    "check:env": "tsx scripts/check-env.ts",
+    "worker:start": "tsx src/worker/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",

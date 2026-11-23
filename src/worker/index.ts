@@ -25,9 +25,18 @@ async function main() {
   let lastNoReply = 0;
   let lastCampaign = 0;
   let lastBilling = 0;
-  console.log(JSON.stringify({ level: "info", msg: "worker iniciado" }));
+  const { withService } = await import("@/lib/db");
+  const { hostname } = await import("node:os");
+  const workerId = `${process.env.FLY_MACHINE_ID ?? process.env.RAILWAY_REPLICA_ID ?? hostname()}:${process.pid}`;
+  const startedAt = new Date();
+  let lastBeat = 0;
+  const beat = () => withService((db) => db.query(
+    "insert into worker_heartbeats (id, started_at, last_seen_at, version) values ($1,$2, now(), $3) on conflict (id) do update set last_seen_at = now()",
+    [workerId, startedAt, process.env.APP_VERSION ?? null]));
+  console.log(JSON.stringify({ level: "info", msg: "worker iniciado", workerId }));
   while (!stopping) {
     try {
+      if (Date.now() - lastBeat > 30_000) { await beat(); lastBeat = Date.now(); }
       if (Date.now() - lastRadar > RADAR_EVERY_MS) { await schedulePeriodic("radar.refresh_all"); lastRadar = Date.now(); }
       if (Date.now() - lastReminders > REMINDERS_EVERY_MS) { await schedulePeriodic("appointments.reminders"); lastReminders = Date.now(); }
       if (Date.now() - lastAutomation > AUTOMATION_TICK_MS) {

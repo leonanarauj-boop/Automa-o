@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
+  DB_POOL_MAX: z.coerce.number().int().min(1).max(50).default(10),
   APP_URL: z.string().url().default("http://localhost:3000"),
   ENCRYPTION_KEY: z.string().min(1, "ENCRYPTION_KEY é obrigatório"),
   META_APP_SECRET: z.string().optional().default(""),

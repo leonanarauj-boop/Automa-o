@@ -1,0 +1,19 @@
+# Fly.io — worker (sem serviço HTTP). Região São Paulo.
+# fly launch --no-deploy --config fly.worker.toml --name retoma-worker-staging
+# fly secrets set DATABASE_URL=... ENCRYPTION_KEY=... (ver docs/DEPLOY.md)
+# fly deploy --config fly.worker.toml
+app = "retoma-worker-staging"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile.worker"
+
+[env]
+  DB_POOL_MAX = "5"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[[restart]]
+  policy = "always"

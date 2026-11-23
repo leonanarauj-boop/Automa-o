@@ -41,7 +41,8 @@ export async function overview() {
         (select count(*) from jobs where status = 'queued' and run_at < now() - interval '5 minutes') late_jobs,
         (select count(*) from webhook_events where error is not null and received_at > now() - interval '7 days') wh_errors,
         (select count(*) from billing_events where error is not null and received_at > now() - interval '7 days') billing_errors,
-        (select count(*) from email_log where status <> 'sent' and created_at > now() - interval '7 days') email_issues`)).rows[0];
+        (select count(*) from email_log where status <> 'sent' and created_at > now() - interval '7 days') email_issues,
+        (select extract(epoch from now() - max(last_seen_at))::int from worker_heartbeats) worker_age`)).rows[0];
     const byPlan = (await db.query<{ plan: string; n: string }>("select plan, count(*) n from organizations group by plan order by plan")).rows;
     const n = (k: string) => Number(r[k] ?? 0);
     return {
@@ -49,6 +50,7 @@ export async function overview() {
       trialsEnding: n("trials_ending"), mrrCents: n("mrr"), paying: n("paying"), aiCostUsd30: n("ai_cost") / 1e6, sent24: n("sent24"), received24: n("received24"),
       failedJobs: n("failed_jobs"), lateJobs: n("late_jobs"), webhookErrors: n("wh_errors"), billingErrors: n("billing_errors"), emailIssues: n("email_issues"),
       byPlan: byPlan.map((x) => ({ plan: x.plan, n: Number(x.n) })),
+      workerAgeSeconds: r.worker_age === null ? null : Number(r.worker_age),
     };
   });
 }

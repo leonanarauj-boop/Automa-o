@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-11-23
+### Adicionado
+- Guia de publicação (`docs/DEPLOY.md`) com configuração de cada serviço.
+- `npm run check:env`: verificação de banco, migrações, worker e integrações (sem expor segredos).
+- `/api/health` e sinal de vida do worker (também no painel da plataforma).
+- `Dockerfile.worker`, `fly.worker.toml`, `vercel.json` (região São Paulo) e integração contínua com todos os testes.
+- `DB_POOL_MAX` para ambientes serverless com pooler.
+
 ## 0.7.0 — 2026-11-23
 ### Adicionado
 - Verificação em duas etapas (TOTP, RFC 6238) com QR code, 10 códigos de recuperação, bloqueio de reuso de código, 5 tentativas por desafio; redefinição de senha não dispensa o código; empresa pode exigir de donos e gestores.
