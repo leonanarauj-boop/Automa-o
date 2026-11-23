@@ -2,15 +2,17 @@ import { requireSession, tenant } from "@/lib/session";
 import { logoutAction } from "../auth-actions";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await requireSession();
   const counts = await tenant(async (db) => {
-    const r = await db.query<{ awaiting: string; signals: string }>(
+    const r = await db.query<{ awaiting: string; signals: string; status: string; trial_ends_at: Date }>(
       `select (select count(*) from conversations where status = 'open' and unread_count > 0) as awaiting,
-              (select count(*) from opportunity_signals where status = 'open') as signals`,
+              (select count(*) from opportunity_signals where status = 'open') as signals,
+              o.status, o.trial_ends_at from organizations o limit 1`,
     );
     return r.rows[0];
   });
@@ -30,7 +32,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <form action={logoutAction} className="mt-3"><button className="text-sm text-muted hover:text-text">Sair</button></form>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+        <BillingBanner status={counts.status} trialEndsAt={counts.trial_ends_at} />
+        {children}
+      </main>
+    </div>
+  );
+}
+
+function BillingBanner({ status, trialEndsAt }: { status: string; trialEndsAt: Date }) {
+  const days = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400_000);
+  const msg = status === "suspended" ? { t: "Acesso restrito: envios, campanhas, automações e IA estão pausados.", c: "bg-danger-soft text-danger" }
+    : status === "past_due" ? { t: "Há uma fatura vencida. Regularize para evitar a pausa dos envios.", c: "bg-money-soft text-money" }
+    : status === "canceled" ? { t: "Assinatura encerrada. Escolha um plano para voltar a enviar mensagens.", c: "bg-danger-soft text-danger" }
+    : status === "trial" && days <= 5 ? { t: `Seu teste grátis termina em ${Math.max(days, 0)} dia(s).`, c: "bg-info-soft text-text" } : null;
+  if (!msg) return null;
+  return (
+    <div className={`mb-6 flex flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-2.5 text-sm ${msg.c}`} role="status">
+      <span>{msg.t}</span><Link href="/app/billing" className="font-medium underline">Ver assinatura</Link>
     </div>
   );
 }

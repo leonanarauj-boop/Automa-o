@@ -7,6 +7,7 @@ import { ProviderError } from "@/modules/whatsapp/provider";
 import { sendDueReminders } from "@/modules/agenda/reminders";
 import { processEvents, runDueWorkflows, scanNoReply } from "@/modules/automations/engine";
 import { dispatchDueCampaigns } from "@/modules/campaigns/service";
+import { processBillingEvent, runLifecycle } from "@/modules/billing/service";
 
 /** Distribui eventos, verifica o gatilho "sem resposta" e avança execuções de automações. */
 export async function automationTick(opts: { scanNoReply?: boolean } = {}) {
@@ -34,6 +35,12 @@ async function handle(job: Job) {
       for (const o of orgs.rows) await withService((db) => refreshRadar(db, o.id));
       return;
     }
+    case "billing.event":
+      await withService((db) => processBillingEvent(db, String(job.payload.eventId)));
+      return;
+    case "billing.lifecycle":
+      await runLifecycle();
+      return;
     case "appointments.reminders":
       await withService((db) => sendDueReminders(db));
       return;
@@ -62,7 +69,7 @@ export async function runOnce(limit = 10): Promise<number> {
 }
 
 /** Agenda um job periódico se não houver um pendente do mesmo tipo. */
-export async function schedulePeriodic(type: "radar.refresh_all" | "appointments.reminders") {
+export async function schedulePeriodic(type: "radar.refresh_all" | "appointments.reminders" | "billing.lifecycle") {
   await withService(async (db) => {
     const pending = await db.query("select 1 from jobs where type = $1 and status in ('queued','running') limit 1", [type]);
     if (!pending.rowCount) await enqueue(db, type, {});

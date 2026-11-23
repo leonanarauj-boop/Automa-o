@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-11-23
+### Adicionado
+- Cobrança: planos e limites, teste grátis, assinatura via Asaas (cliente, assinatura, faturas), webhook autenticado e idempotente, cupons, upgrade imediato e downgrade agendado, inadimplência com carência de 7 dias, acesso restrito, cancelamento.
+- Travas por plano: IA, campanhas, número de automações ativas e contatos (cadastro manual).
+- Tela de Assinatura (plano, consumo, faturas) e aviso de status em todo o app.
+
 ## 0.4.0 — 2026-11-23
 ### Adicionado
 - Campanhas: segmentação, pré-visualização, consentimento obrigatório, frequência, limite diário, aprovação, teste, agendamento, envio escalonado, cancelamento e resultados.

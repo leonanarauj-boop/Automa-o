@@ -9,12 +9,14 @@ export class AILimitError extends Error {}
  */
 export async function reserveCredit(orgId: string, userId: string | null, feature: string): Promise<string> {
   return withService(async (db) => {
-    const org = await db.query<{ ai_enabled: boolean; ai_monthly_credits: number; status: string }>(
-      "select ai_enabled, ai_monthly_credits, status from organizations where id = $1 for update", [orgId]);
+    const org = await db.query<{ ai_enabled: boolean; ai_monthly_credits: number; status: string; plan: string }>(
+      "select ai_enabled, ai_monthly_credits, status, plan from organizations where id = $1 for update", [orgId]);
     const o = org.rows[0];
     if (!o) throw new AILimitError("Organização não encontrada.");
     if (!o.ai_enabled) throw new AILimitError("A IA está desativada nas configurações da conta.");
-    if (o.status === "suspended" || o.status === "canceled") throw new AILimitError("Conta inativa.");
+    if (o.status === "suspended" || o.status === "canceled") throw new AILimitError("Conta com acesso restrito. Regularize a assinatura para usar a IA.");
+    const { getPlan } = await import("@/modules/billing/plans");
+    if (!getPlan(o.plan).features.ai) throw new AILimitError(`Seu plano (${getPlan(o.plan).name}) não inclui o copiloto de IA. Faça upgrade em Assinatura.`);
     const used = await db.query<{ n: string }>(
       `select count(*) n from ai_calls where organization_id = $1 and created_at >= date_trunc('month', now())
          and status in ('pending','ok','refused','blocked')`, [orgId]);

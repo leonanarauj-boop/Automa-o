@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { audit } from "@/modules/audit/audit";
 import { BLOCK_LABEL, checkContact, dailyCapacity, loadTemplate, paramSourceSchema, queueTemplateMessage, renderParams, TemplateSendError, type ParamSource } from "@/modules/messaging/template-send";
 import { renderTemplate } from "@/modules/whatsapp/rules";
+import { assertFeature, BillingError } from "@/modules/billing/service";
 
 export class CampaignError extends Error {}
 
@@ -145,6 +146,7 @@ export async function requestApproval(db: Db, orgId: string, userId: string, cam
 export async function approve(db: Db, orgId: string, userId: string, campaignId: string, scheduledAt: Date) {
   const c = await getCampaign(db, campaignId);
   if (!["draft", "pending_approval"].includes(c.status)) throw new CampaignError("Esta campanha não pode ser aprovada no estado atual.");
+  try { await assertFeature(db, orgId, "campaigns"); } catch (e) { if (e instanceof BillingError) throw new CampaignError(e.message); throw e; }
   if (scheduledAt.getTime() < Date.now() - 60_000) throw new CampaignError("A data de envio não pode estar no passado.");
   const pv = await preview(db, orgId, campaignId);
   if (pv.problems.length) throw new CampaignError(pv.problems[0]);
@@ -192,8 +194,10 @@ const SPACING_MS = 200; // ~5 mensagens por segundo
 
 export async function dispatchDueCampaigns(db: Db) {
   const due = await db.query<CampaignRow & { campaign_frequency_days: number }>(
-    `select c.*, o.campaign_frequency_days from campaigns c join organizations o on o.id = c.organization_id and o.status in ('trial','active')
-     where c.status = 'scheduled' and c.scheduled_at <= now() order by c.scheduled_at limit 5 for update of c skip locked`);
+    `select c.*, o.campaign_frequency_days from campaigns c join organizations o on o.id = c.organization_id and o.status in ('trial','active','past_due')
+     where c.status = 'scheduled' and c.scheduled_at <= now()
+       and o.plan in ('trial','professional','business') -- planos com campanhas (ver billing/plans.ts)
+     order by c.scheduled_at limit 5 for update of c skip locked`);
   let total = 0;
   for (const c of due.rows) {
     await db.query("update campaigns set status = 'sending', started_at = now() where id = $1", [c.id]);

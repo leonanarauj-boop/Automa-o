@@ -28,6 +28,8 @@ function matches(trigger: Trigger, ev: { type: string; payload: Record<string, u
 
 async function createRun(db: Db, orgId: string, a: { id: string; version_id: string }, eventKey: string,
   refs: { contactId: string | null; dealId?: string | null; appointmentId?: string | null }, depth: number) {
+  const org = await db.query("select 1 from organizations where id = $1 and status in ('trial','active','past_due')", [orgId]);
+  if (!org.rowCount) return false; // conta com acesso restrito: automações não disparam
   const today = await db.query<{ n: string }>("select count(*) n from workflow_runs where organization_id = $1 and started_at > now() - interval '24 hours'", [orgId]);
   if (Number(today.rows[0].n) >= MAX_RUNS_PER_DAY) return false;
   const r = await db.query(
@@ -180,6 +182,7 @@ async function executeStep(db: Db, run: Run, index: number, step: Step): Promise
       return { status: "ok", detail: "Negócio movido." };
     }
     case "send_template": {
+      if (!(await db.query("select 1 from organizations where id = $1 and status in ('trial','active','past_due')", [orgId])).rowCount) return { status: "skipped", detail: "Conta com acesso restrito: envio não realizado." };
       const tpl = await loadTemplate(db, step.templateId);
       if (!tpl) throw new StepFailure("Template não encontrado.");
       const block = await checkContact(db, contactId, tpl);

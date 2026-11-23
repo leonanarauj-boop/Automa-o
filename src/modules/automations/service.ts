@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Db } from "@/lib/db";
 import { audit } from "@/modules/audit/audit";
 import { definitionSchema, type Definition } from "./definition";
+import { assertFeature, BillingError } from "@/modules/billing/service";
 
 export class AutomationError extends Error {}
 
@@ -59,6 +60,13 @@ export async function saveVersion(db: Db, orgId: string, userId: string, automat
 }
 
 export async function setAutomationStatus(db: Db, orgId: string, userId: string, id: string, status: "active" | "paused") {
+  if (status === "active") {
+    try {
+      const e = await assertFeature(db, orgId, "automations");
+      const n = await db.query<{ n: string }>("select count(*) n from automations where status = 'active' and id <> $1", [id]);
+      if (Number(n.rows[0].n) >= e.plan.limits.activeAutomations) throw new AutomationError(`Seu plano permite ${e.plan.limits.activeAutomations} automações ativas. Pause outra ou faça upgrade.`);
+    } catch (e) { if (e instanceof BillingError) throw new AutomationError(e.message); throw e; }
+  }
   const r = await db.query(
     "update automations set status = $2, updated_at = now(), activated_at = case when $2 = 'active' and status <> 'active' then now() else activated_at end where id = $1",
     [id, status]);

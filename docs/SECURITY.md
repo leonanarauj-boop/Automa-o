@@ -13,6 +13,8 @@
 | Injeção SQL | Somente consultas parametrizadas | todo o código |
 | Entradas inválidas | Validação com zod em todas as ações | módulos |
 | Clickjacking/MIME | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `next.config.ts` |
+| Webhook de pagamento forjado | Token do cabeçalho `asaas-access-token` comparado em tempo constante; eventos deduplicados pelo `id` | `api/webhooks/billing/route.ts` |
+| Dados de cartão | Nunca trafegam pela plataforma: pagamento na página de fatura do gateway | `billing/` |
 | Rastreabilidade | `audit_logs` (append-only para usuários) em ações sensíveis | `modules/audit` |
 
 ## Pendências conhecidas (antes do lançamento)

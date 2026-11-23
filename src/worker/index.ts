@@ -10,6 +10,7 @@ const REMINDERS_EVERY_MS = 5 * 60 * 1000;
 const AUTOMATION_TICK_MS = 10 * 1000;
 const NO_REPLY_SCAN_MS = 5 * 60 * 1000;
 const CAMPAIGN_TICK_MS = 60 * 1000;
+const BILLING_LIFECYCLE_MS = 30 * 60 * 1000;
 
 async function main() {
   const { runOnce, schedulePeriodic, automationTick, campaignTick } = await import("./handlers");
@@ -23,6 +24,7 @@ async function main() {
   let lastAutomation = 0;
   let lastNoReply = 0;
   let lastCampaign = 0;
+  let lastBilling = 0;
   console.log(JSON.stringify({ level: "info", msg: "worker iniciado" }));
   while (!stopping) {
     try {
@@ -35,6 +37,7 @@ async function main() {
         if (scan) lastNoReply = Date.now();
       }
       if (Date.now() - lastCampaign > CAMPAIGN_TICK_MS) { await campaignTick(); lastCampaign = Date.now(); }
+      if (Date.now() - lastBilling > BILLING_LIFECYCLE_MS) { await schedulePeriodic("billing.lifecycle"); lastBilling = Date.now(); }
       const n = await runOnce(20);
       if (n === 0) await new Promise((r) => setTimeout(r, 1000));
     } catch (e) {

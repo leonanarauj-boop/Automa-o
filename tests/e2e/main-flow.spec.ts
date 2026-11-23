@@ -164,6 +164,13 @@ test("cadastro → demonstração → contato → negócio → WhatsApp → Rada
   await page.goto("/app/inbox");
   await expect(page.getByRole("button", { name: /Sugerir resposta com IA/ })).toHaveCount(0);
 
+  // Assinatura: plano de teste, consumo e planos (sem gateway configurado neste ambiente)
+  await page.goto("/app/billing");
+  await expect(page.getByRole("heading", { name: "Plano Teste grátis" })).toBeVisible();
+  await expect(page.getByText("Os pagamentos ainda não estão configurados")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Profissional" })).toBeVisible();
+  if (shots) await page.screenshot({ path: `${shots}/12-assinatura.png`, fullPage: true });
+
   // Sair
   await page.getByRole("button", { name: "Sair" }).last().click();
   await expect(page).toHaveURL(/\/login/);

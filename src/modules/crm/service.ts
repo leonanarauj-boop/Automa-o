@@ -29,6 +29,11 @@ function phoneOrThrow(phone: string | null) {
 export async function createContact(db: Db, orgId: string, userId: string, input: z.input<typeof contactSchema>) {
   const d = contactSchema.parse(input);
   const phone = phoneOrThrow(d.phone);
+  const { getPlan } = await import("@/modules/billing/plans");
+  const lim = (await db.query<{ plan: string; n: string }>(
+    "select o.plan, (select count(*) from contacts where organization_id = $1 and deleted_at is null and not is_demo) n from organizations o where o.id = $1", [orgId])).rows[0];
+  // limite só para cadastro manual; mensagens recebidas de clientes NUNCA são descartadas
+  if (lim && Number(lim.n) >= getPlan(lim.plan).limits.contacts) throw new CrmError(`Seu plano permite ${getPlan(lim.plan).limits.contacts.toLocaleString("pt-BR")} contatos. Faça upgrade em Assinatura.`);
   try {
     const r = await db.query<{ id: string }>(
       `insert into contacts (organization_id, display_name, phone_e164, wa_id, email, company, notes, temperature, owner_user_id, source)

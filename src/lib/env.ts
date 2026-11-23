@@ -9,6 +9,9 @@ const schema = z.object({
   META_GRAPH_VERSION: z.string().default("v23.0"),
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   AI_MODEL: z.string().default("claude-opus-5-5"),
+  ASAAS_API_KEY: z.string().optional().default(""),
+  ASAAS_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
+  ASAAS_WEBHOOK_TOKEN: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -5,6 +5,7 @@ import { isWindowOpen, renderTemplate } from "@/modules/whatsapp/rules";
 import { channelProvider } from "@/modules/whatsapp/meta-cloud";
 import { ProviderError } from "@/modules/whatsapp/provider";
 import { audit } from "@/modules/audit/audit";
+import { BillingError, assertCanOperate } from "@/modules/billing/service";
 
 export class SendBlockedError extends Error {}
 
@@ -26,6 +27,10 @@ async function loadConversation(db: Db, conversationId: string) {
   return r.rows[0];
 }
 
+async function canSend(db: Db, orgId: string) {
+  try { await assertCanOperate(db, orgId); } catch (e) { if (e instanceof BillingError) throw new SendBlockedError(e.message); throw e; }
+}
+
 export async function marketingOptedOut(db: Db, contactId: string): Promise<boolean> {
   const r = await db.query<{ status: string }>(
     `select status from consent_records where contact_id = $1 and purpose = 'marketing'
@@ -42,6 +47,7 @@ export async function marketingOptedOut(db: Db, contactId: string): Promise<bool
 export async function queueText(db: Db, userId: string, input: z.infer<typeof textSchema>) {
   const data = textSchema.parse(input);
   const conv = await loadConversation(db, data.conversationId);
+  await canSend(db, conv.organization_id);
   if (!conv.channel_account_id || !conv.wa_id) throw new SendBlockedError("Esta conversa não está ligada a um número de WhatsApp conectado.");
   if (!isWindowOpen(conv.service_window_expires_at)) {
     throw new SendBlockedError("A janela de 24h está fechada. Para retomar o contato, envie um template aprovado.");
@@ -59,6 +65,7 @@ export const templateSchema = z.object({
 export async function queueTemplate(db: Db, userId: string, input: z.infer<typeof templateSchema>) {
   const data = templateSchema.parse(input);
   const conv = await loadConversation(db, data.conversationId);
+  await canSend(db, conv.organization_id);
   if (!conv.channel_account_id || !conv.wa_id) throw new SendBlockedError("Esta conversa não está ligada a um número de WhatsApp conectado.");
   if (await marketingOptedOut(db, conv.contact_id)) {
     throw new SendBlockedError("O contato pediu para não receber mensagens. Envio de templates bloqueado.");

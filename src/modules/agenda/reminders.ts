@@ -36,7 +36,7 @@ export async function sendDueReminders(db: Db) {
     `select a.id, a.organization_id, a.contact_id, c.display_name as contact_name, c.wa_id, a.starts_at, p.name as professional, s.name as service,
             o.timezone, t.id as template_id, t.status as template_status, t.body_text, t.body_param_count, t.channel_account_id, ch.status as channel_status
      from appointments a
-     join organizations o on o.id = a.organization_id and o.status in ('trial','active')
+     join organizations o on o.id = a.organization_id and o.status in ('trial','active','past_due')
      join message_templates t on t.id = o.reminder_template_id
      join channel_accounts ch on ch.id = t.channel_account_id
      join contacts c on c.id = a.contact_id
